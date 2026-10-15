@@ -1,0 +1,68 @@
+.tg-overlay {
+  --tg-background: #25252b;
+  --tg-color: #fafafa;
+  --tg-border: #ffffff18;
+  --tg-radius: 12px;
+  --tg-max-width: 280px;
+  --tg-max-height: 300px;
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+  z-index: 1000;
+  pointer-events: none;
+  font: var(--tg-font, 500 13px/1.45 system-ui, sans-serif);
+  color: var(--tg-color);
+  text-align: left;
+}
+.tg-position {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+}
+
+.tg-backdrop {
+  border: 1px solid var(--tg-border);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--tg-background);
+  border-radius: var(--tg-radius);
+  box-shadow: var(--tg-shadow, 0 8px 28px #0003, 0 2px 6px #0002);
+}
+
+.tg-clip {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  border-radius: var(--tg-radius);
+}
+.tg-content {
+  position: relative;
+  box-sizing: border-box;
+  padding: var(--tg-padding, 10px 14px);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tg-scrollbar-thumb, color-mix(in srgb, currentColor 24%, transparent))
+    var(--tg-scrollbar-track, transparent);
+}
+.tg-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+.tg-position[data-open] {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.tg-description[hidden] {
+  display: none;
+}

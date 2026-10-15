@@ -1,0 +1,14 @@
+@import "./common.css";
+.tg-base .tg-position {
+  opacity: 0;
+  transition:
+    opacity 140ms linear,
+    visibility 0s 140ms,
+    transform var(--tg-duration) cubic-bezier(0.23, 1, 0.32, 1),
+    width var(--tg-duration) cubic-bezier(0.23, 1, 0.32, 1),
+    height var(--tg-duration) cubic-bezier(0.23, 1, 0.32, 1);
+}
+.tg-base .tg-position[data-open] {
+  opacity: 1;
+  transition-delay: 0s;
+}
