@@ -1,8 +1,12 @@
 # Tip Glide
 
-One shared tooltip, gliding between elements.
+[![npm version](https://img.shields.io/npm/v/tip-glide.svg)](https://www.npmjs.com/package/tip-glide)
+[![Core CI](https://github.com/lumberjacque/tip-glide/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lumberjacque/tip-glide/actions/workflows/ci.yml)
+[![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/lumberjacque/tip-glide/blob/main/LICENSE)
 
-A small, framework-independent tooltip library with smooth handoffs, automatic positioning and built-in TypeScript types. Written in strict TypeScript, with no runtime dependencies. MIT licensed.
+One shared tooltip, gliding between elements. Framework-independent TypeScript with smooth position and size transitions, automatic placement and no runtime dependencies.
+
+[Live demo](https://tip-glide.vercel.app) · [npm](https://www.npmjs.com/package/tip-glide) · [API](#api) · [Performance](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) · [Releases](https://github.com/lumberjacque/tip-glide/releases) · [Issues](https://github.com/lumberjacque/tip-glide/issues)
 
 - **One surface per group.** The tooltip moves and resizes as you move between triggers.
 - **Configurable motion.** Choose entrance and exit presets, custom keyframes, directional lean and an optional hover-delay indicator.
@@ -44,7 +48,16 @@ Create groups in the browser after the document body and connected triggers exis
 
 Pass `document` instead of an element to register all initial `[data-tip]` elements on the page. In plain JavaScript, omit the `<HTMLElement>` type argument.
 
-### Lightweight entry
+### Choose an entry
+
+Both entries share registration, input handling, accessible descriptions and cleanup. Import the JavaScript and CSS for the entry you use:
+
+| Entry                                   | Features                                                                                             | Measured JS + CSS gzip |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------: |
+| `tip-glide` + `tip-glide/style.css`     | Full motion, liquid pointer, lean, fuse, custom transitions, 360° placement and container boundaries |                8.09 kB |
+| `tip-glide/base` + `tip-glide/base.css` | Native CSS travel and size transitions, four-side placement, viewport constraints and fixed fades    |                3.91 kB |
+
+The base entry is available from version 0.2.0:
 
 ```ts
 import { createTipGlide } from "tip-glide/base";
@@ -57,7 +70,7 @@ The base entry keeps the shared tooltip, size morphing, hover delays, keyboard b
 
 Use the full entry for liquid arrows, lean, fuse, custom enter/exit animations, element boundaries or arbitrary-angle placement and routing. Those visual modules are excluded from the base consumer bundle. Import the stylesheet matching your entry; each contains its own shared styles.
 
-Measured with the size script: about **3.26 kB gzip JavaScript + 0.65 kB CSS** for base, versus **7.42 kB + 0.67 kB** for full. These are consumer bundles, not the npm tarball. A 3 kB **combined** target has not been reached. See [performance measurements and limitations](./PERFORMANCE.md).
+Sizes come from minified consumer bundles, with JavaScript and CSS compressed separately. They exclude declarations, tests and the private demo website. See [measurement methodology and limitations](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for exact results and reproducible commands.
 
 ### Dynamic triggers and cleanup
 
@@ -120,7 +133,7 @@ An old cleanup function cannot remove a newer registration. Empty descriptions a
 
 ### Styling
 
-Import `tip-glide/style.css` once. The stylesheet is explicitly marked as a side effect for bundlers. JavaScript does not inject styles. Create a theme by passing `className: 'my-tips'`:
+Import the stylesheet matching your entry once: `tip-glide/style.css` for full or `tip-glide/base.css` for base. Both are marked as side effects for bundlers; JavaScript does not inject styles. Create a theme by passing `className: 'my-tips'`:
 
 ```css
 .my-tips {
@@ -144,6 +157,8 @@ The visual overlay is mounted directly under `document.body` to escape ordinary 
 ### Angles, boundaries and custom motion
 
 ```ts
+import { createTipGlide } from "tip-glide";
+
 const canvas = document.querySelector<HTMLElement>("#canvas");
 if (!canvas) throw new Error("Canvas not found");
 
@@ -251,7 +266,7 @@ The package also exports `TipGlide`, `TipGlideOptions`, `Placement`, `MotionPref
 
 ## Motion and input
 
-The first hover waits briefly; adjacent hovers skip that wait. Travel and size retarget from the currently displayed pixel geometry, keeping the background and clip together. Text stays at its natural scale. Measurements round fractional sizes upward so the visible width cannot create an unmeasured extra line. New text fades in once the surface can contain all its lines. Travel and size share a finite animation; velocity drives a damped, bounded lean that settles afterward. Entry and exit have an independent animation layer. With the default `arrow: false`, the surface uses CSS and allocates no SVG. Enabling the pointer creates one reusable SVG contour. Its exact lines and arcs use a bounded number of segments regardless of tooltip size, without filters or raster work. Travel segment lengths are measured once per glide; animation frames only sample the prepared path. Animation cancellation is expected and handled. There is no perpetual animation loop.
+The first hover waits briefly; adjacent hovers skip that wait. Travel and size retarget from the currently displayed pixel geometry, keeping the background and clip together. Text stays at its natural scale. Measurements round fractional sizes upward so the visible width cannot create an unmeasured extra line. New text fades in once the surface can contain all its lines. Travel and size share a finite animation; velocity drives a damped, bounded lean that settles afterward. Entry and exit have an independent animation layer. With the default `arrow: false`, the surface uses CSS and allocates no SVG. Enabling the pointer creates one reusable SVG contour. Its exact lines and arcs use a bounded number of segments regardless of tooltip size, without SVG filters or canvas. Travel segment lengths are measured once per glide; animation frames only sample the prepared path. Animation cancellation is expected and handled. There is no perpetual animation loop.
 
 Keyboard focus opens and moves immediately, without a positional transition. Escape cancels pending work and dismisses. Touch pointers do not generate tooltip hovers. A tooltip reached by pointer remains visible while hovered. Document visibility changes and window blur dismiss it. Scrolling cancels a pending fuse; re-enter the trigger to restart it.
 
@@ -259,7 +274,7 @@ Scroll, window/visual viewport resize and trigger/content/boundary size changes 
 
 ## Browser support and limitations
 
-The library targets modern evergreen browsers with Pointer Events, `matchMedia` and modern CSS support. When `ResizeObserver` is unavailable, call `reposition()` after element size changes. Without the Web Animations API, entry, exit and text fades are immediate; travel and size motion still use `requestAnimationFrame`.
+The library targets modern evergreen browsers with Pointer Events, `matchMedia` and modern CSS support. When `ResizeObserver` is unavailable, call `reposition()` after element size changes. Without the Web Animations API, its JavaScript-driven fades and entry/exit effects are immediate. The full entry's travel and size motion use `requestAnimationFrame`; base uses native CSS transitions.
 
 Imports are SSR-safe, but `createTipGlide()` requires a browser document with an existing body. The package provides ESM exports; CommonJS `require()` is not an advertised entry point.
 
@@ -269,11 +284,11 @@ This library is designed for plain-text tooltips. Top-layer dialogs, transformed
 
 Every trigger receives its own stable plain-text `role="tooltip"` description referenced by `aria-describedby`. Existing description tokens are preserved; cleanup removes only the token this group added. The shared visual overlay is hidden from assistive technology so switching anchors does not change another trigger's description. Accessible names and native focus outlines are left intact.
 
-Reduced motion removes travel, tilt and size animation; the fuse becomes a static indicator. Live system changes are respected. Tooltip triggers must have meaningful visible labels or accessible names. Do not put essential instructions solely inside a tooltip. Do not put links or controls inside one; use a popover instead. Behavior follows the [WAI-ARIA tooltip pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/) (the APG pattern is currently marked work in progress).
+Reduced motion removes travel, tilt and size animation; the fuse becomes a static indicator. Live system changes are respected. Tooltip triggers must have meaningful visible labels or accessible names. Do not put essential instructions solely inside a tooltip. Do not put links or controls inside one; use a popover instead. Behavior is informed by the [WAI-ARIA tooltip pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/).
 
 ## Troubleshooting
 
-- **The tooltip is missing or unstyled.** Import `tip-glide/style.css`, initialize after mounting, and make sure the trigger is connected, has a nonempty description and is inside the effective boundary.
+- **The tooltip is missing or unstyled.** Import the stylesheet matching your entry, initialize after mounting, and make sure the trigger is connected, has a nonempty description and is inside the effective boundary.
 - **A new button has no tooltip.** Call `tips.add(button)` after adding it to the document. The initial `data-tip` scan runs once.
 - **A changed description is not shown.** Call `tips.add(button, "Updated description")` to replace the registration.
 - **Theme variables have no effect.** Apply them to the class passed through `className`. The overlay is mounted under `document.body`, so it does not inherit variables from the trigger's container.
@@ -290,11 +305,11 @@ npm run test
 npm run verify
 ```
 
-`src/controller.ts` owns input, lifecycle and registration. `src/view.ts` owns measured DOM and motion. `src/geometry.ts` is pure placement and routing math. `src/skin.ts` builds the analytic contour; `src/motion.ts` samples travel paths and easing. `src/options.ts` validates configuration. Only `src/index.ts` defines public exports. Tests cover placement, warm timing, handoffs, focus, Escape, touch, description ownership, dynamic cleanup and reduced motion. DOM simulation tests do not substitute for browser motion checks.
+`src/lifecycle.ts` shares input handling, registration and cleanup between both entries. The full entry is defined in `src/index.ts`; the lightweight entry is in `src/base.ts`. Renderers own DOM measurement and visual motion, with placement, routing and contour math in separate modules. Tests cover positioning, rapid handoffs, timing, focus, Escape, touch, description ownership and reduced motion. DOM simulation tests do not substitute for browser motion checks.
 
-`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. The checked budgets are 7.4 kB gzip for JavaScript, 750 bytes for CSS and 8.1 kB combined; see command output for the current measured size.
+`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 8.1 kB for full and 4 kB for base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
 
-`npm run bench` runs a deterministic contour and path-sampling microbenchmark. It measures pure JavaScript work, not browser layout, paint or device frame rate. Use a real-browser performance trace for end-to-end results.
+`npm run bench` reports pure geometry timings. `npm run bench:browser` compares both entries in installed Edge on desktop and narrow viewports, without starting the demo website. See [PERFORMANCE.md](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for browser selection, workloads and measurement limits.
 
 To inspect the npm package contents without publishing:
 
@@ -304,6 +319,12 @@ npm pack --dry-run
 
 `npm pack` builds the library through `prepack` and rejects unexpected or stale outputs. `npm publish` runs the complete verification through `prepublishOnly`. Verification also installs a real tarball in a temporary consumer and checks server-safe imports, TypeScript declarations and the CSS export. The package contains built JavaScript, declarations, CSS, documentation and the MIT license; the demo website is maintained separately.
 
+## Contributing and releases
+
+See [CONTRIBUTING.md](https://github.com/lumberjacque/tip-glide/blob/main/CONTRIBUTING.md) for development conventions.
+Report reproducible bugs in [GitHub Issues](https://github.com/lumberjacque/tip-glide/issues).
+Version history and release notes live in [GitHub Releases](https://github.com/lumberjacque/tip-glide/releases).
+
 ## License
 
-MIT. See [LICENSE](./LICENSE). See [CONTRIBUTING.md](./CONTRIBUTING.md) for development conventions.
+MIT. See [LICENSE](https://github.com/lumberjacque/tip-glide/blob/main/LICENSE).

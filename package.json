@@ -9,7 +9,7 @@
     "typescript",
     "vanilla"
   ],
-  "homepage": "https://github.com/lumberjacque/tip-glide#readme",
+  "homepage": "https://tip-glide.vercel.app",
   "bugs": {
     "url": "https://github.com/lumberjacque/tip-glide/issues"
   },
