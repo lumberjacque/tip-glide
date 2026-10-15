@@ -1,0 +1,80 @@
+{
+  "name": "tip-glide",
+  "version": "0.2.0",
+  "description": "One shared tooltip, gliding between elements. Framework agnostic and dependency free.",
+  "keywords": [
+    "animation",
+    "framework-agnostic",
+    "tooltip",
+    "typescript",
+    "vanilla"
+  ],
+  "homepage": "https://github.com/lumberjacque/tip-glide#readme",
+  "bugs": {
+    "url": "https://github.com/lumberjacque/tip-glide/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lumberjacque/tip-glide.git"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/*.css",
+    "README.md",
+    "CONTRIBUTING.md",
+    "PERFORMANCE.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "./dist/*.css"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./base": {
+      "types": "./dist/base.d.ts",
+      "import": "./dist/base.js"
+    },
+    "./base.css": "./dist/base.css"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "oxlint src tests scripts --deny-warnings",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "size": "node scripts/size.mjs",
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package && npm run check:install",
+    "prepack": "npm run build && npm run check:package",
+    "prepublishOnly": "npm run verify",
+    "check:package": "node scripts/check-package.mjs",
+    "check:install": "node scripts/check-install.mjs",
+    "bench": "npm run build && node scripts/bench.mjs",
+    "bench:browser": "npm run build && node scripts/bench-browser.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "happy-dom": "^20.14.5",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.80.0",
+    "playwright-core": "^1.64.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
