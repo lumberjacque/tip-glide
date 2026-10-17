@@ -293,7 +293,8 @@ export function createController<Input, Config extends ControllerOptions>(
     (event) => {
       touch = (event as PointerEvent).pointerType === "touch";
       pointerFocus = !touch;
-      if (touch) dismiss(true);
+      // Preserve the native scroll target when a finger starts inside this tooltip.
+      if (touch && !event.composedPath().includes(view.position)) dismiss(true);
     },
     true,
   );

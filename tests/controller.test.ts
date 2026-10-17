@@ -61,6 +61,20 @@ afterEach(() => {
 });
 
 describe("group lifecycle and descriptions", () => {
+  it("keeps its own scroll surface open when touched, but dismisses on outside touch", () => {
+    const tips = group({ enter: "none", exit: "none" });
+    tips.add(a, "A long description. ".repeat(100));
+    tips.show(a);
+    const content = document.querySelector<HTMLElement>(".tg-content")!;
+    content.scrollTop = 40;
+    content.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+    expect(visible()).toHaveLength(1);
+    expect(content.scrollTop).toBe(40);
+    document.body.dispatchEvent(
+      new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }),
+    );
+    expect(visible()).toHaveLength(0);
+  });
   it("preserves existing descriptions and keeps one stable description per trigger", () => {
     a.setAttribute("aria-describedby", "existing");
     group();

@@ -1,6 +1,6 @@
 {
   "name": "tip-glide",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "One shared tooltip, gliding between elements. Framework agnostic and dependency free.",
   "keywords": [
     "animation",
