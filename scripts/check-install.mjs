@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, rm, access, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { createRequire } from "node:module";
@@ -34,7 +34,7 @@ try {
   );
   for (const { path } of packed.files) {
     if (
-      !/^(?:dist\/.*\.(?:js|d\.ts)|dist\/(?:style|base)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|LICENSE)$/.test(
+      !/^(?:dist\/.*\.(?:js|d\.ts|astro)|dist\/(?:style|base)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|LICENSE)$/.test(
         path,
       )
     )
@@ -55,11 +55,59 @@ try {
     ],
     consumer,
   );
+  const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+  for (const framework of Object.keys(manifest.peerDependencies)) {
+    let present = false;
+    try {
+      await access(join(consumer, "node_modules", framework));
+      present = true;
+    } catch {}
+    if (present) throw new Error(`Plain installation unexpectedly installed ${framework}.`);
+    if (!manifest.peerDependenciesMeta[framework]?.optional)
+      throw new Error(`Framework peer must be optional: ${framework}.`);
+  }
+  // Install actual consumer frameworks only after proving the vanilla install stays independent.
+  const frameworks = [
+    "react",
+    "@types/react",
+    "vue",
+    "svelte",
+    "preact",
+    "solid-js",
+    "@angular/core",
+    "@angular/common",
+    "@angular/compiler",
+    "@angular/compiler-cli",
+    "astro",
+    "@astrojs/check",
+    "typescript",
+  ];
+  runNpm(
+    [
+      "install",
+      ...frameworks.map((name) => `${name}@${manifest.devDependencies[name]}`),
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      "--package-lock=false",
+    ],
+    consumer,
+  );
   await writeFile(
     join(consumer, "imports.mjs"),
     `
 import { createTipGlide } from "tip-glide";
 import { createTipGlide as createBase } from "tip-glide/base";
+import "@angular/compiler";
+import { TipGlide as ReactGroup } from "tip-glide/react";
+import { vTipGlide } from "tip-glide/vue";
+import { tipGlide } from "tip-glide/svelte";
+import { TipGlide as PreactGroup } from "tip-glide/preact";
+import { createTipGlideRef } from "tip-glide/solid";
+import { TipGlideDirective } from "tip-glide/angular";
+if ([ReactGroup, tipGlide, PreactGroup, createTipGlideRef, TipGlideDirective].some((value) => typeof value !== "function") || !vTipGlide.mounted)
+  throw new Error("Missing framework export.");
+if (typeof document !== "undefined") throw new Error("SSR import unexpectedly created a DOM.");
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 if (typeof createTipGlide !== "function") throw new Error("Missing public function export.");
@@ -81,6 +129,21 @@ if (!readFileSync(require.resolve("tip-glide/base.css"), "utf8").includes(".tg-b
 import { createTipGlide, type TipGlide, type TipGlideOptions, type Placement,
   type MotionPreference, type TipAnimation, type TipTransition } from "tip-glide";
 import { createTipGlide as createBase, type TipGlideBase, type TipGlideBaseOptions } from "tip-glide/base";
+import { createElement } from "react";
+import { TipGlide as ReactGroup, useTipGlide, type TipGlideAdapterOptions } from "tip-glide/react";
+import { vTipGlide } from "tip-glide/vue";
+import { tipGlide } from "tip-glide/svelte";
+import { TipGlide as PreactGroup } from "tip-glide/preact";
+import { createTipGlideRef } from "tip-glide/solid";
+import { TipGlideDirective } from "tip-glide/angular";
+const adapted: TipGlideAdapterOptions = { boundary: "root", alwaysVisible: true, arrow: true };
+createElement(ReactGroup, { options: adapted });
+useTipGlide<HTMLDivElement>(adapted);
+createTipGlideRef(() => adapted);
+void [vTipGlide, tipGlide, PreactGroup, TipGlideDirective];
+// @ts-expect-error Adapters accept only a root boundary or actual element.
+const invalid: TipGlideAdapterOptions = { boundary: "viewport" };
+void invalid;
 declare const root: HTMLElement;
 declare const trigger: HTMLButtonElement;
 const placement: Placement = 45;
@@ -116,6 +179,7 @@ basic.update({ placement: 45 });
         lib: ["ES2022", "DOM"],
         types: [],
         strict: true,
+        skipLibCheck: true,
         noEmit: true,
       },
       files: ["types.ts"],
@@ -130,13 +194,59 @@ basic.update({ placement: 45 });
       stdio: "inherit",
     },
   );
+  await writeFile(
+    join(consumer, "angular-consumer.ts"),
+    `
+import { Component } from "@angular/core";
+import { TipGlideDirective, type TipGlideAdapterOptions } from "tip-glide/angular";
+@Component({ standalone: true, imports: [TipGlideDirective], template: '<nav [tipGlide]="options"><button data-tip="Save">Save</button></nav>' })
+export class Toolbar { readonly options: TipGlideAdapterOptions = { arrow: true, boundary: "root" }; }
+`,
+  );
+  await writeFile(
+    join(consumer, "tsconfig.angular.json"),
+    JSON.stringify({
+      extends: "./tsconfig.json",
+      compilerOptions: { noEmit: false, experimentalDecorators: true, outDir: "./angular-output" },
+      angularCompilerOptions: { compilationMode: "full", strictTemplates: true },
+      files: ["angular-consumer.ts"],
+    }),
+  );
+  const consumerRequire = createRequire(join(consumer, "package.json"));
+  const ngc = join(
+    dirname(consumerRequire.resolve("@angular/compiler-cli/package.json")),
+    "bundles/src/bin/ngc.js",
+  );
+  execFileSync(process.execPath, [ngc, "-p", "tsconfig.angular.json"], {
+    cwd: consumer,
+    stdio: "inherit",
+  });
+
+  await mkdir(join(consumer, "src/pages"), { recursive: true });
+  await writeFile(
+    join(consumer, "src/pages/index.astro"),
+    `---
+import TipGlide from 'tip-glide/astro';
+---
+<TipGlide options={{ arrow: true, boundary: 'root' }}><button data-tip="Save">Save</button></TipGlide>
+`,
+  );
+  await writeFile(
+    join(consumer, "tsconfig.json"),
+    JSON.stringify({ extends: "astro/tsconfigs/strict" }),
+  );
+  runNpm(["exec", "--", "astro", "check"], consumer);
+  runNpm(["exec", "--", "astro", "build"], consumer);
+  const html = await readFile(join(consumer, "dist/index.html"), "utf8");
+  if (!html.includes("tip-glide-group") || !html.includes('data-tip="Save"'))
+    throw new Error("Packed Astro component did not render its group and slot.");
   const installed = JSON.parse(
     await readFile(join(consumer, "node_modules/tip-glide/package.json"), "utf8"),
   );
   if (Object.keys(installed.dependencies ?? {}).length)
     throw new Error("Unexpected runtime dependencies.");
   console.log(
-    "Installed package: ESM, SSR-safe import, CSS export and consumer declarations checked.",
+    "Installed package: vanilla isolation, seven framework exports, SSR, types, Angular AOT and Astro consumer checked.",
   );
 } finally {
   // This immutable path was checked against the temporary parent before use.

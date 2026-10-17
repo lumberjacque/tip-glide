@@ -1,6 +1,6 @@
 {
   "name": "tip-glide",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One shared tooltip, gliding between elements. Framework agnostic and dependency free.",
   "keywords": [
     "animation",
@@ -25,7 +25,8 @@
     "README.md",
     "CONTRIBUTING.md",
     "PERFORMANCE.md",
-    "LICENSE"
+    "LICENSE",
+    "dist/*.astro"
   ],
   "type": "module",
   "sideEffects": [
@@ -43,36 +44,110 @@
       "types": "./dist/base.d.ts",
       "import": "./dist/base.js"
     },
-    "./base.css": "./dist/base.css"
+    "./base.css": "./dist/base.css",
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js"
+    },
+    "./svelte": {
+      "types": "./dist/svelte.d.ts",
+      "import": "./dist/svelte.js"
+    },
+    "./angular": {
+      "types": "./dist/angular.d.ts",
+      "import": "./dist/angular.js"
+    },
+    "./solid": {
+      "types": "./dist/solid.d.ts",
+      "import": "./dist/solid.js"
+    },
+    "./preact": {
+      "types": "./dist/preact.d.ts",
+      "import": "./dist/preact.js"
+    },
+    "./astro": "./dist/astro.astro"
   },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/build-css.mjs",
+    "build": "ngc -p tsconfig.build.json && node scripts/build-css.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "oxlint src tests scripts --deny-warnings",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "size": "node scripts/size.mjs",
-    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package && npm run check:install",
+    "verify": "npm run verify:core && npm run check:install",
     "prepack": "npm run build && npm run check:package",
     "prepublishOnly": "npm run verify",
     "check:package": "node scripts/check-package.mjs",
     "check:install": "node scripts/check-install.mjs",
     "bench": "npm run build && node scripts/bench.mjs",
-    "bench:browser": "npm run build && node scripts/bench-browser.mjs"
+    "bench:browser": "npm run build && node scripts/bench-browser.mjs",
+    "test:adapters": "vitest run tests/adapters.test.ts tests/adapters-ssr.test.ts tests/adapters-extra.test.ts",
+    "verify:core": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package"
   },
   "devDependencies": {
+    "@angular/common": "^21.2.25",
+    "@angular/compiler": "^21.2.25",
+    "@angular/compiler-cli": "^21.2.25",
+    "@angular/core": "^21.2.25",
+    "@angular/platform-browser": "^21.2.25",
+    "@astrojs/check": "^0.9.10",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "astro": "^7.4.0",
     "esbuild": "^0.28.2",
     "happy-dom": "^20.14.5",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.80.0",
     "playwright-core": "^1.64.1",
+    "preact": "^11.0.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "solid-js": "^1.9.17",
+    "svelte": "^5.57.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "vue": "^3.5.44"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=21 <23",
+    "astro": ">=5 <8",
+    "preact": ">=10 <12",
+    "react": ">=18 <20",
+    "solid-js": ">=1.9 <2",
+    "svelte": ">=4 <6",
+    "vue": ">=3.3 <4"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    },
+    "svelte": {
+      "optional": true
+    },
+    "@angular/core": {
+      "optional": true
+    },
+    "solid-js": {
+      "optional": true
+    },
+    "preact": {
+      "optional": true
+    },
+    "astro": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22.12.0"
