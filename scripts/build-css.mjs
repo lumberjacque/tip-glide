@@ -1,3 +1,4 @@
+import { copyFile } from "node:fs/promises";
 import { build } from "esbuild";
 
 // Minify only shipped CSS; retain readable ESM for consumer bundlers and debugging.
@@ -7,3 +8,5 @@ await build({
   minify: true,
   outdir: "dist",
 });
+
+await copyFile("src/astro.astro", "dist/astro.astro");

@@ -1,0 +1,26 @@
+---
+import type { HTMLAttributes } from 'astro/types';
+import type { TipGlideAdapterOptions } from './adapters/binding.js';
+import './style.css';
+
+/** Astro group props. Options cross the server/client boundary as JSON. @public */
+export interface Props extends HTMLAttributes<'div'> {
+  /** Serializable options; use 'root' for a local boundary. DOM element references cannot cross SSR. */
+  options?: Omit<TipGlideAdapterOptions, 'boundary'> & { boundary?: 'root' | null };
+}
+
+const { options = {}, ...attributes } = Astro.props;
+---
+
+<tip-glide-group {...attributes} data-tip-glide-options={JSON.stringify(options)}>
+  <slot />
+</tip-glide-group>
+
+<style>
+  tip-glide-group { display: block; }
+</style>
+
+<script>
+  import { registerTipGlideElement } from './adapters/astro-element.js';
+  registerTipGlideElement();
+</script>

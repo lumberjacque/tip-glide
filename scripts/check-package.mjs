@@ -26,7 +26,11 @@ const outputs = sources.flatMap((path) => {
   const stem = path.slice(resolve(root, "src").length + 1, -3);
   return [resolve(root, "dist", `${stem}.js`), resolve(root, "dist", `${stem}.d.ts`)];
 });
-outputs.push(resolve(root, "dist/style.css"), resolve(root, "dist/base.css"));
+outputs.push(
+  resolve(root, "dist/style.css"),
+  resolve(root, "dist/base.css"),
+  resolve(root, "dist/astro.astro"),
+);
 const newestCSS = Math.max(
   ...(await Promise.all(
     ["common", "style", "base"].map(
@@ -41,7 +45,11 @@ for (const path of outputs) {
   } catch {
     throw new Error(`Missing package output: ${path}. Run npm run build in core first.`);
   }
-  const sourceTime = path.endsWith(".css") ? newestCSS : newestSource;
+  const sourceTime = path.endsWith(".css")
+    ? newestCSS
+    : path.endsWith(".astro")
+      ? (await stat(resolve(root, "src/astro.astro"))).mtimeMs
+      : newestSource;
   if (output.mtimeMs < sourceTime)
     throw new Error(`Stale package output: ${path}. Run npm run build in core first.`);
 }

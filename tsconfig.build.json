@@ -6,5 +6,8 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "exclude": ["tests", "vitest.config.ts"]
+  "exclude": ["tests", "vitest.config.ts"],
+  "angularCompilerOptions": {
+    "compilationMode": "partial"
+  }
 }

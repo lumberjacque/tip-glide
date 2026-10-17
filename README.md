@@ -185,82 +185,157 @@ Placement follows the exact requested angle, then slides along the boundary when
 
 Custom animation keyframes run on a dedicated entrance/exit layer, separate from travel, lean and size morphing. When the browser provides `KeyframeEffect`, keyframes and timing are validated before creating a group or applying an update. Provide at least two valid Web Animations keyframes; durations must be finite and nonnegative, easing must be valid CSS. Prefer transform and opacity. The default durations are 180 ms on entry and 140 ms on exit. System reduced motion and keyboard focus bypass custom effects too. `duration: 0` disables travel and resize, while `enter: 'none'` and `exit: 'none'` disable the respective effects.
 
-### React, Vue, Svelte
+### Framework adapters
 
-Import `tip-glide/style.css` once in your application entry point or global stylesheet setup. Initialize a group after mounting and destroy it on unmount. The examples register static children; use `add()` and its returned cleanup function for dynamic triggers.
+The core import stays framework independent. From version 0.3.0, optional entry points integrate with React, Vue 3, Svelte 4/5, Angular, Solid, Preact and Astro. Import `tip-glide/style.css` once in your application. You do not need to write mounting or cleanup hooks.
+
+Adapters watch their group's `data-tip` attributes and children. Conditional triggers register automatically, changed descriptions update, and removed triggers unregister. Configuration updates replace the previous configuration, so omitted fields reset to their documented defaults. Existing `aria-describedby` tokens are preserved.
 
 #### React
 
-In an SSR framework, put this component in a client module.
-
 ```tsx
-import { useEffect, useRef } from "react";
-import { createTipGlide } from "tip-glide";
+"use client";
+import { TipGlide } from "tip-glide/react";
+import "tip-glide/style.css";
 
 export function Toolbar() {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!ref.current) return;
-    const tips = createTipGlide(ref.current);
-    return () => tips.destroy();
-  }, []);
-
   return (
-    <div ref={ref}>
+    <TipGlide options={{ arrow: true, lean: true }} className="toolbar">
       <button data-tip="Make something new">Create</button>
       <button data-tip="Keep something good">Save</button>
-    </div>
+    </TipGlide>
   );
 }
 ```
 
-React Strict Mode setup/cleanup replay is supported.
+`TipGlide` renders a `div` and forwards its native attributes. `className` styles that div; `options.className` styles the tooltip overlay. For another existing element, use the callback-ref hook:
+
+```tsx
+import { useTipGlide } from "tip-glide/react";
+
+function Actions() {
+  const tips = useTipGlide<HTMLElement>({ arrow: true });
+  return (
+    <nav ref={tips}>
+      <button data-tip="Save changes">Save</button>
+    </nav>
+  );
+}
+```
+
+The hook owns the controller, including ref replacement, unmount and React Strict Mode replay. Server rendering produces ordinary markup; no browser globals are read during import or rendering. Framework components need a client boundary in React Server Component applications.
 
 #### Vue
 
 ```vue
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import { createTipGlide, type TipGlide } from "tip-glide";
-
-const root = ref<HTMLDivElement | null>(null);
-let tips: TipGlide | undefined;
-
-onMounted(() => {
-  if (root.value) tips = createTipGlide(root.value);
-});
-onBeforeUnmount(() => tips?.destroy());
+import { vTipGlide } from "tip-glide/vue";
+import "tip-glide/style.css";
 </script>
 
 <template>
-  <div ref="root">
+  <div v-tip-glide="{ arrow: true, lean: true }">
     <button data-tip="Make something new">Create</button>
     <button data-tip="Keep something good">Save</button>
   </div>
 </template>
 ```
 
+Use the directive on a native element. The directive's lifecycle owns updates and teardown; it performs no browser work during server rendering.
+
 #### Svelte
 
 ```svelte
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { createTipGlide } from "tip-glide";
-
-  let root: HTMLDivElement;
-
-  onMount(() => {
-    const tips = createTipGlide(root);
-    return () => tips.destroy();
-  });
+  import { tipGlide } from "tip-glide/svelte";
+  import "tip-glide/style.css";
 </script>
 
-<div bind:this={root}>
+<div use:tipGlide={{ arrow: true, lean: true }}>
   <button data-tip="Make something new">Create</button>
   <button data-tip="Keep something good">Save</button>
 </div>
 ```
+
+The action supports reactive parameters and cleans up when Svelte removes its element. It does not execute during server rendering.
+
+#### Angular
+
+Import the standalone directive in your component. The library ships Angular's partial compilation output, so your application can compile its templates normally.
+
+```ts
+import { Component } from "@angular/core";
+import { TipGlideDirective, type TipGlideAdapterOptions } from "tip-glide/angular";
+import "tip-glide/style.css";
+
+@Component({
+  imports: [TipGlideDirective],
+  template: '<nav [tipGlide]="options"><button data-tip="Save a copy">Save</button></nav>',
+})
+export class Toolbar {
+  readonly options: TipGlideAdapterOptions = { arrow: true, lean: true };
+}
+```
+
+The directive starts after the browser renders. Bound options update automatically; destruction cancels pending setup and destroys the group. Supports Angular 21 and 22.
+
+#### Solid
+
+```tsx
+import { createTipGlideRef } from "tip-glide/solid";
+import "tip-glide/style.css";
+
+export function Toolbar(props: { lean: boolean }) {
+  const ref = createTipGlideRef(() => ({ lean: props.lean, arrow: true }));
+  return (
+    <nav ref={ref}>
+      <button data-tip="Save a copy">Save</button>
+    </nav>
+  );
+}
+```
+
+Call the ref factory during component setup. The accessor tracks reactive options; the component owner handles teardown. No browser work runs during SSR.
+
+#### Preact
+
+```tsx
+import { TipGlide } from "tip-glide/preact";
+import "tip-glide/style.css";
+
+export function Toolbar() {
+  return (
+    <TipGlide options={{ arrow: true, lean: true }}>
+      <button data-tip="Save a copy">Save</button>
+    </TipGlide>
+  );
+}
+```
+
+Preact also exports `useTipGlide` for attaching to an existing native element. It uses Preact's own hooks and needs no React compatibility layer.
+
+#### Astro
+
+```astro
+---
+import TipGlide from "tip-glide/astro";
+---
+
+<TipGlide options={{ arrow: true, lean: true, boundary: "root" }}>
+  <button data-tip="Save a copy">Save</button>
+</TipGlide>
+```
+
+The Astro component includes the stylesheet and its client script. It needs no `client:*` directive or UI framework runtime. Options are serialized to JSON, so use `boundary: "root"` or `null` rather than a DOM element. Custom keyframes can be plain serializable objects. The native group disconnects on removal and reconnects after navigation, including Astro's client router. Updating its `data-tip-glide-options` JSON attribute updates the group.
+
+#### Adapter options
+
+The six JavaScript adapter entry points export the `TipGlideAdapterOptions` type. Astro exports its component props from the `.astro` component. It accepts the core options and two additions:
+
+- `boundary: "root"` confines the tooltip to the adapter's own group element. A same-document element or `null` also works.
+- `alwaysVisible: true` shows the first nonempty trigger when the group mounts or that trigger changes. This is a touch-preview convenience, not a controlled open state; Escape, blur and normal tooltip interactions still apply.
+
+Invalid options throw the same validation errors as the core. The adapters add no runtime framework dependency to the core or base entry. Frameworks are optional peers; install only the framework your application uses. Vue and Svelte use type-only framework imports. The core and base entry points never import an adapter. Other environments can use the imperative core API.
 
 The package also exports `TipGlide`, `TipGlideOptions`, `Placement`, `MotionPreference`, `TipAnimation` and `TipTransition` as TypeScript types.
 
@@ -328,3 +403,9 @@ Version history and release notes live in [GitHub Releases](https://github.com/l
 ## License
 
 MIT. See [LICENSE](https://github.com/lumberjacque/tip-glide/blob/main/LICENSE).
+
+### Adapter checks
+
+`npm run test:adapters` exercises real React, Vue, Angular, Solid and Preact lifecycles, a compiled Svelte component, Astro connection/reconnection, dynamic triggers and cleanup. `npm run check:install` builds an isolated consumer from the packed package, proves that a vanilla install brings in no framework, checks public types and SSR imports, compiles an Angular consumer with strict templates, and checks/builds a minimal Astro page. Run `npm run build` first.
+
+CI runs lifecycle tests on Node 22 and 24 on Windows and Linux. A separate packed-consumer job checks the distributable, including Angular and Astro. `npm run verify` runs all checks locally.
