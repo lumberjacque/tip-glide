@@ -14,7 +14,7 @@ One shared tooltip, gliding between elements. Framework-independent TypeScript w
 - **Keyboard and reduced motion.** Keyboard focus opens immediately, Escape dismisses, and system motion preferences are respected.
 - **Framework independent.** Use vanilla JavaScript, React, Vue or Svelte through their normal lifecycle APIs.
 
-[Installation](#installation) · [Quick start](#quick-start) · [API](#api) · [Styling](#styling) · [Frameworks](#react-vue-svelte) · [Accessibility](#accessibility)
+[Installation](#installation) · [Quick start](#quick-start) · [API](#api) · [Styling](#styling) · [Frameworks](#framework-adapters) · [Accessibility](#accessibility)
 
 ## Installation
 
@@ -360,6 +360,8 @@ This library is designed for plain-text tooltips. Top-layer dialogs, transformed
 Every trigger receives its own stable plain-text `role="tooltip"` description referenced by `aria-describedby`. Existing description tokens are preserved; cleanup removes only the token this group added. The shared visual overlay is hidden from assistive technology so switching anchors does not change another trigger's description. Accessible names and native focus outlines are left intact.
 
 Reduced motion removes travel, tilt and size animation; the fuse becomes a static indicator. Live system changes are respected. Tooltip triggers must have meaningful visible labels or accessible names. Do not put essential instructions solely inside a tooltip. Do not put links or controls inside one; use a popover instead. Behavior is informed by the [WAI-ARIA tooltip pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/).
+
+Long descriptions support native scrolling inside the shared surface, including touch gestures. A touch inside the tooltip preserves it; touching outside still dismisses it.
 
 ## Troubleshooting
 
