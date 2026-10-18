@@ -1,38 +1,7 @@
+import { trackRemoval } from "./removals.js";
 import { intersects } from "./geometry.js";
-import type { Rect } from "./geometry.js";
-import type { TipGlideOptions } from "./types.js";
 
-// Shared input, accessibility and teardown; renderers own the visual feature set.
-export type ControllerOptions = Required<
-  Pick<
-    TipGlideOptions,
-    "boundary" | "motion" | "className" | "openDelay" | "closeDelay" | "warmDuration"
-  >
->;
-export interface ControllerView<Config> {
-  baseClass: string;
-  overlay: HTMLElement;
-  position: HTMLElement;
-  measurement: HTMLElement;
-  bounds(options: Config): Rect;
-  render(
-    trigger: HTMLElement,
-    text: string,
-    options: Config,
-    instant: boolean,
-    changed: boolean,
-  ): string;
-  hide(instant: boolean): void;
-  startFuse(
-    trigger: HTMLElement,
-    text: string,
-    delay: number,
-    options: Config,
-    reduced: boolean,
-  ): void;
-  stopFuse(): void;
-  destroy(): void;
-}
+import type { ControllerOptions, ControllerView } from "./view-contract.js";
 
 let sequence = 0;
 interface Entry {
@@ -67,6 +36,17 @@ export function createController<Input, Config extends ControllerOptions>(
   let destroyed = false;
   let touch = false;
   let pointerFocus = false;
+  let press:
+    | {
+        id: number;
+        x: number;
+        y: number;
+        trigger: HTMLElement;
+        wasOpen: boolean;
+        down: boolean;
+        dragged: boolean;
+      }
+    | undefined;
   let instantPresentation = false;
   const removers: (() => void)[] = [];
   let observedGeometry = "";
@@ -84,20 +64,12 @@ export function createController<Input, Config extends ControllerOptions>(
     ].join(",");
   }
   const resize =
-    typeof win.ResizeObserver === "function"
+    !view.tracksAnchor && typeof win.ResizeObserver === "function"
       ? new win.ResizeObserver(() => {
           // ResizeObserver sends an initial notification. It must not cancel a new glide.
           if (active && geometryKey() !== observedGeometry) schedulePosition();
         })
       : undefined;
-  const mutations = new win.MutationObserver((records) => {
-    for (const record of records)
-      for (const node of record.removedNodes)
-        if (node.nodeType === 1) {
-          for (const [trigger, entry] of entries) if (!trigger.isConnected) entry.cleanup();
-          return;
-        }
-  });
 
   function listen(target: EventTarget, type: string, handler: EventListener, capture = false) {
     target.addEventListener(type, handler, capture);
@@ -132,6 +104,7 @@ export function createController<Input, Config extends ControllerOptions>(
   }
 
   function observe(trigger: HTMLElement) {
+    if (view.tracksAnchor) return;
     resize?.disconnect();
     resize?.observe(trigger);
     resize?.observe(view.measurement);
@@ -140,7 +113,7 @@ export function createController<Input, Config extends ControllerOptions>(
 
   function open(trigger: HTMLElement, instant = false) {
     if (destroyed || !trigger.isConnected || !entries.has(trigger)) return;
-    if (!intersects(trigger.getBoundingClientRect(), view.bounds(config))) {
+    if (!view.tracksAnchor && !intersects(trigger.getBoundingClientRect(), view.bounds(config))) {
       dismiss(true);
       return;
     }
@@ -190,6 +163,16 @@ export function createController<Input, Config extends ControllerOptions>(
 
   function reposition(immediate = false) {
     if (destroyed || !active) return;
+    if (view.tracksAnchor) {
+      view.render(
+        active,
+        entries.get(active)?.description.textContent ?? "",
+        config,
+        immediate || reduced(),
+        false,
+      );
+      return;
+    }
     if (
       !active.isConnected ||
       !active.getClientRects().length ||
@@ -207,8 +190,8 @@ export function createController<Input, Config extends ControllerOptions>(
     );
   }
 
-  function schedulePosition() {
-    if (destroyed) return;
+  function schedulePosition(event?: Event) {
+    if (destroyed || event?.composedPath().includes(view.position)) return;
     // A scroll invalidates the delay indicator's coordinates; the next hover can start again.
     cancelOpen();
     if (frame !== undefined) return;
@@ -243,6 +226,7 @@ export function createController<Input, Config extends ControllerOptions>(
     description.hidden = true;
     description.textContent = text;
     doc.body.append(description);
+    const untrack = trackRemoval(trigger, () => entry.cleanup());
     const tokens = (trigger.getAttribute("aria-describedby") ?? "").split(/\s+/).filter(Boolean);
     trigger.setAttribute("aria-describedby", [...tokens, description.id].join(" "));
     const entry: Entry = {
@@ -250,6 +234,7 @@ export function createController<Input, Config extends ControllerOptions>(
       cleanup() {
         if (entries.get(trigger) !== entry) return;
         entries.delete(trigger);
+        untrack();
         const remaining = (trigger.getAttribute("aria-describedby") ?? "")
           .split(/\s+/)
           .filter((id) => id && id !== description.id);
@@ -267,7 +252,8 @@ export function createController<Input, Config extends ControllerOptions>(
 
   listen(doc, "pointerover", (event) => {
     const pointer = event as PointerEvent;
-    if (pointer.pointerType === "touch" || !hoverMedia.matches) return;
+    if (pointer.pointerType === "touch" || !hoverMedia.matches || (press?.down && press.dragged))
+      return;
     const trigger = find(event);
     if (!trigger || stillInside(trigger, pointer.relatedTarget)) return;
     hovered = trigger;
@@ -275,6 +261,7 @@ export function createController<Input, Config extends ControllerOptions>(
   });
   listen(doc, "pointerout", (event) => {
     const pointer = event as PointerEvent;
+    if (pointer.pointerType === "touch") return;
     const trigger = find(event);
     if (!trigger || stillInside(trigger, pointer.relatedTarget) || hovered !== trigger) return;
     hovered = undefined;
@@ -282,7 +269,8 @@ export function createController<Input, Config extends ControllerOptions>(
     else requestClose();
   });
   listen(view.position, "pointerenter", () => cancelClose());
-  listen(view.position, "pointerleave", () => {
+  listen(view.position, "pointerleave", (event) => {
+    if ((event as PointerEvent).pointerType === "touch") return;
     if (hovered) requestOpen(hovered);
     else if (focused) open(focused, true);
     else requestClose();
@@ -291,16 +279,61 @@ export function createController<Input, Config extends ControllerOptions>(
     doc,
     "pointerdown",
     (event) => {
-      touch = (event as PointerEvent).pointerType === "touch";
+      const pointer = event as PointerEvent;
+      touch = pointer.pointerType === "touch";
       pointerFocus = !touch;
-      // Preserve the native scroll target when a finger starts inside this tooltip.
-      if (touch && !event.composedPath().includes(view.position)) dismiss(true);
+      press = undefined;
+      if (event.composedPath().includes(view.position)) return;
+      const trigger = pointer.button === 0 ? find(event) : undefined;
+      if (trigger)
+        press = {
+          id: pointer.pointerId,
+          x: pointer.clientX,
+          y: pointer.clientY,
+          trigger,
+          wasOpen: active === trigger,
+          down: true,
+          dragged: false,
+        };
+      if (touch) dismiss(true);
     },
     true,
   );
+  listen(doc, "pointermove", (event) => {
+    const pointer = event as PointerEvent;
+    if (!press?.down || press.id !== pointer.pointerId || press.dragged) return;
+    if (Math.hypot(pointer.clientX - press.x, pointer.clientY - press.y) <= 6) return;
+    press.dragged = true;
+    if (config.hideOnDrag) reset();
+  });
+  listen(doc, "pointerup", (event) => {
+    if (press?.id === (event as PointerEvent).pointerId) press.down = false;
+  });
+  listen(doc, "pointercancel", () => {
+    press = undefined;
+  });
+  listen(doc, "dragstart", (event) => {
+    if (press) press.dragged = true;
+    if (config.hideOnDrag && find(event)) reset();
+  });
+  listen(doc, "click", (event) => {
+    const previous = press;
+    press = undefined;
+    if (
+      !touch ||
+      config.touch !== "tap" ||
+      !previous ||
+      previous.dragged ||
+      previous.down ||
+      find(event) !== previous.trigger
+    )
+      return;
+    if (previous.wasOpen) dismiss(true);
+    else open(previous.trigger);
+  });
   listen(doc, "focusin", (event) => {
     const trigger = find(event);
-    if (!trigger || touch) return;
+    if (!trigger || touch || press?.dragged) return;
     focused = trigger;
     open(trigger, !pointerFocus);
   });
@@ -315,6 +348,7 @@ export function createController<Input, Config extends ControllerOptions>(
     doc,
     "keydown",
     (event) => {
+      press = undefined;
       touch = false;
       pointerFocus = false;
       if ((event as KeyboardEvent).key === "Escape") {
@@ -323,8 +357,10 @@ export function createController<Input, Config extends ControllerOptions>(
     },
     true,
   );
-  listen(doc, "scroll", schedulePosition, true);
-  listen(win, "resize", schedulePosition);
+  if (!view.tracksAnchor) {
+    listen(doc, "scroll", schedulePosition, true);
+    listen(win, "resize", schedulePosition);
+  }
   listen(win, "blur", reset);
   listen(doc, "visibilitychange", () => {
     if (doc.hidden) reset();
@@ -335,14 +371,13 @@ export function createController<Input, Config extends ControllerOptions>(
       reposition();
     }
   });
-  if (win.visualViewport) {
+  if (win.visualViewport && !view.tracksAnchor) {
     listen(win.visualViewport, "resize", schedulePosition);
     listen(win.visualViewport, "scroll", schedulePosition);
   }
   for (const trigger of root.querySelectorAll<HTMLElement>("[data-tip]")) add(trigger);
   if (root.nodeType === 1 && (root as HTMLElement).hasAttribute("data-tip"))
     add(root as HTMLElement);
-  mutations.observe(doc.body, { childList: true, subtree: true });
 
   return {
     add,
@@ -366,7 +401,6 @@ export function createController<Input, Config extends ControllerOptions>(
       destroyed = true;
       dismiss(true);
       if (frame !== undefined) win.cancelAnimationFrame(frame);
-      mutations.disconnect();
       for (const entry of entries.values()) entry.cleanup();
       for (const remove of removers) remove();
       view.destroy();

@@ -1,6 +1,6 @@
 {
   "name": "tip-glide",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "One shared tooltip, gliding between elements. Framework agnostic and dependency free.",
   "keywords": [
     "animation",
@@ -26,7 +26,8 @@
     "CONTRIBUTING.md",
     "PERFORMANCE.md",
     "LICENSE",
-    "dist/*.astro"
+    "dist/*.astro",
+    "ARCHITECTURE.md"
   ],
   "type": "module",
   "sideEffects": [
@@ -69,7 +70,16 @@
       "types": "./dist/preact.d.ts",
       "import": "./dist/preact.js"
     },
-    "./astro": "./dist/astro.astro"
+    "./astro": "./dist/astro.astro",
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js"
+    },
+    "./native.css": "./dist/native.css",
+    "./element": {
+      "types": "./dist/element.d.ts",
+      "import": "./dist/element.js"
+    }
   },
   "publishConfig": {
     "access": "public",
@@ -91,7 +101,8 @@
     "bench": "npm run build && node scripts/bench.mjs",
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
     "test:adapters": "vitest run tests/adapters.test.ts tests/adapters-ssr.test.ts tests/adapters-extra.test.ts",
-    "verify:core": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package"
+    "verify:core": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package",
+    "test:browser": "npm run build && node scripts/check-browser.mjs"
   },
   "devDependencies": {
     "@angular/common": "^21.2.25",

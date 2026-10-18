@@ -1,3 +1,4 @@
+import { createOverlay } from "./overlay.js";
 import { clamp, getViewport, opposite } from "./geometry.js";
 import type { BaseOptions } from "./base-options.js";
 
@@ -9,19 +10,19 @@ export function createBaseView(doc: Document, win: Window) {
     node.className = name;
     return node;
   };
-  const overlay = div("tg-overlay tg-base"),
+  const host = createOverlay(doc, "tg-overlay tg-base");
+  const overlay = host.element,
     position = div("tg-position"),
     backdrop = div("tg-backdrop"),
     clip = div("tg-clip"),
     content = div("tg-content"),
     measurement = div("tg-content tg-measure");
-  overlay.setAttribute("aria-hidden", "true");
   clip.append(content);
   position.append(backdrop, clip);
   overlay.append(position, measurement);
-  doc.body.append(overlay);
   let visible = false;
   function render(trigger: HTMLElement, text: string, config: BaseOptions, instant: boolean) {
+    host.present(trigger);
     overlay.className = `tg-overlay tg-base ${config.className}`;
     const bounds = getViewport(win),
       padding = config.viewportPadding;
@@ -95,12 +96,13 @@ export function createBaseView(doc: Document, win: Window) {
       position.style.transition = instant ? "none" : "";
       position.removeAttribute("data-open");
       visible = false;
+      host.conceal(instant ? 0 : 140);
     },
     startFuse: noop,
     stopFuse: noop,
     destroy() {
       content.getAnimations?.().forEach((animation) => animation.cancel());
-      overlay.remove();
+      host.destroy();
     },
   };
 }

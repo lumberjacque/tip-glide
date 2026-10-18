@@ -34,7 +34,7 @@ try {
   );
   for (const { path } of packed.files) {
     if (
-      !/^(?:dist\/.*\.(?:js|d\.ts|astro)|dist\/(?:style|base)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|LICENSE)$/.test(
+      !/^(?:dist\/.*\.(?:js|d\.ts|astro)|dist\/(?:style|base|native)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|ARCHITECTURE\.md|LICENSE)$/.test(
         path,
       )
     )
@@ -98,6 +98,9 @@ try {
     `
 import { createTipGlide } from "tip-glide";
 import { createTipGlide as createBase } from "tip-glide/base";
+import { createTipGlide as createNative, supportsNativeTipGlide } from "tip-glide/native";
+import { registerTipGlideElement } from "tip-glide/element";
+if (typeof createNative !== "function" || typeof registerTipGlideElement !== "function" || supportsNativeTipGlide()) throw new Error("Native/element SSR import failed");
 import "@angular/compiler";
 import { TipGlide as ReactGroup } from "tip-glide/react";
 import { vTipGlide } from "tip-glide/vue";
@@ -117,6 +120,8 @@ if (!readFileSync(require.resolve("tip-glide/style.css"), "utf8").includes(".tg-
   throw new Error("Missing tooltip stylesheet.");
 if (!readFileSync(require.resolve("tip-glide/base.css"), "utf8").includes(".tg-base"))
   throw new Error("Missing base stylesheet.");
+if (!readFileSync(require.resolve("tip-glide/native.css"), "utf8").includes(".tg-native"))
+  throw new Error("Missing native stylesheet.");
 `,
   );
   execFileSync(process.execPath, [join(consumer, "imports.mjs")], {
@@ -129,6 +134,7 @@ if (!readFileSync(require.resolve("tip-glide/base.css"), "utf8").includes(".tg-b
 import { createTipGlide, type TipGlide, type TipGlideOptions, type Placement,
   type MotionPreference, type TipAnimation, type TipTransition } from "tip-glide";
 import { createTipGlide as createBase, type TipGlideBase, type TipGlideBaseOptions } from "tip-glide/base";
+import { createTipGlide as createNative, type TipGlideNativeOptions } from "tip-glide/native";
 import { createElement } from "react";
 import { TipGlide as ReactGroup, useTipGlide, type TipGlideAdapterOptions } from "tip-glide/react";
 import { vTipGlide } from "tip-glide/vue";
@@ -159,6 +165,12 @@ remove(); tips.destroy();
 createTipGlide(root, { placement: "diagonal" });
 // @ts-expect-error Tooltip descriptions are plain text.
 tips.add(trigger, document.createElement("div"));
+const nativeOptions: TipGlideNativeOptions = { placement: "right", touch: "tap", hideOnDrag: false };
+const native = createNative(root, nativeOptions); native.update({ touch: "none" }); native.destroy();
+// @ts-expect-error Native placement does not include geometric pointers.
+createNative(root, { arrow: true });
+// @ts-expect-error Native placement fades; it does not expose a glide duration.
+createNative(root, { duration: 180 });
 const baseOptions: TipGlideBaseOptions = { placement: "top", duration: 180 };
 const basic: TipGlideBase = createBase(root, baseOptions);
 basic.add(trigger, "Description"); basic.show(trigger); basic.reposition();

@@ -29,11 +29,12 @@ const outputs = sources.flatMap((path) => {
 outputs.push(
   resolve(root, "dist/style.css"),
   resolve(root, "dist/base.css"),
+  resolve(root, "dist/native.css"),
   resolve(root, "dist/astro.astro"),
 );
 const newestCSS = Math.max(
   ...(await Promise.all(
-    ["common", "style", "base"].map(
+    ["common", "surface", "style", "base", "native"].map(
       async (name) => (await stat(resolve(root, `src/${name}.css`))).mtimeMs,
     ),
   )),

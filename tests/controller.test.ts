@@ -361,3 +361,90 @@ describe("document mutation cost", () => {
     expect(connected).not.toHaveBeenCalled();
   });
 });
+
+function pointer(target: HTMLElement, type: string, x = 0, kind = "touch") {
+  target.dispatchEvent(
+    new PointerEvent(type, {
+      bubbles: true,
+      pointerType: kind,
+      pointerId: 1,
+      button: 0,
+      clientX: x,
+    }),
+  );
+}
+function tap(target: HTMLElement) {
+  pointer(target, "pointerdown");
+  pointer(target, "pointerup");
+  target.click();
+}
+describe("touch and drag policy", () => {
+  it("keeps touch scroll open when the browser sends pointerleave after claiming the gesture", () => {
+    group({ touch: "tap" });
+    tap(a);
+    document
+      .querySelector(".tg-position")!
+      .dispatchEvent(new PointerEvent("pointerleave", { pointerType: "touch" }));
+    vi.advanceTimersByTime(1000);
+    expect(visible()).toHaveLength(1);
+  });
+
+  it("opts into tap toggling without cancelling the trigger action", () => {
+    group({ touch: "tap" });
+    const action = vi.fn();
+    a.addEventListener("click", action);
+    tap(a);
+    expect(visible()).toHaveLength(1);
+    expect(action).toHaveBeenCalledTimes(1);
+    tap(a);
+    expect(visible()).toHaveLength(0);
+    tap(b);
+    expect(visible()).toHaveLength(1);
+    pointer(document.body, "pointerdown");
+    expect(visible()).toHaveLength(0);
+  });
+  it("does not enable tap by default or open after touch dragging/cancellation", () => {
+    const tips = group();
+    tap(a);
+    expect(visible()).toHaveLength(0);
+    tips.update({ touch: "tap" });
+    pointer(a, "pointerdown");
+    pointer(a, "pointermove", 10);
+    pointer(a, "pointerup", 10);
+    a.click();
+    expect(visible()).toHaveLength(0);
+    pointer(a, "pointerdown");
+    pointer(a, "pointercancel");
+    a.click();
+    expect(visible()).toHaveLength(0);
+  });
+  it("dismisses after the drag threshold and suppresses hover/focus during the drag", () => {
+    const tips = group();
+    tips.show(a);
+    pointer(a, "pointerdown", 0, "mouse");
+    pointer(a, "pointermove", 5, "mouse");
+    expect(visible()).toHaveLength(1);
+    pointer(a, "pointermove", 7, "mouse");
+    expect(visible()).toHaveLength(0);
+    hover(b);
+    b.focus();
+    expect(visible()).toHaveLength(0);
+    pointer(a, "pointerup", 7, "mouse");
+    a.click();
+    hover(b);
+    vi.advanceTimersByTime(500);
+    expect(visible()).toHaveLength(1);
+  });
+  it("retains geometry during deliberate positioning demos", () => {
+    const tips = group({ hideOnDrag: false });
+    tips.show(a);
+    pointer(a, "pointerdown", 0, "mouse");
+    pointer(a, "pointermove", 100, "mouse");
+    expect(visible()).toHaveLength(1);
+    a.dispatchEvent(new Event("dragstart", { bubbles: true }));
+    expect(visible()).toHaveLength(1);
+    tips.update({ hideOnDrag: true });
+    a.dispatchEvent(new Event("dragstart", { bubbles: true }));
+    expect(visible()).toHaveLength(0);
+  });
+});

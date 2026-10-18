@@ -10,6 +10,8 @@ import type { TipGlide, TipGlideOptions } from "./types.js";
  */
 export type TipGlideBaseOptions = Pick<
   TipGlideOptions,
+  | "touch"
+  | "hideOnDrag"
   | "gap"
   | "viewportPadding"
   | "openDelay"
