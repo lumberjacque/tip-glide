@@ -19,6 +19,10 @@ export type MotionPreference = "system" | "reduced";
 
 /** Configuration for one group of tooltips. All distances are CSS pixels. @public */
 export interface TipGlideOptions {
+  /** Opt-in tap toggling for dedicated information triggers. Does not prevent their normal click action. @defaultValue 'none' */
+  touch?: "none" | "tap";
+  /** Dismiss after a primary pointer moves more than 6 CSS pixels, or a native drag starts. Disable for positioning demos. @defaultValue true */
+  hideOnDrag?: boolean;
   /** Preferred side or angle in degrees: 0 above, 90 right, 180 below, 270 left. Wraps at 360. @defaultValue 'top' */
   placement?: Placement;
   /** Confine the tooltip to this element's client box intersected with the viewport. Must share the root's document. @defaultValue null */

@@ -3,6 +3,8 @@ import type { TipGlideOptions } from "./types.js";
 export type Options = Required<TipGlideOptions>;
 
 const defaults: Options = {
+  touch: "none",
+  hideOnDrag: true,
   placement: "top",
   boundary: null,
   arrow: false,
@@ -45,7 +47,8 @@ export function resolveOptions(input: TipGlideOptions, previous: Options = defau
     "placement",
   );
   validate(["system", "reduced"].includes(options.motion), "motion");
-  for (const key of ["lean", "showFuse", "arrow"] as const)
+  validate(["none", "tap"].includes(options.touch), "touch");
+  for (const key of ["lean", "showFuse", "arrow", "hideOnDrag"] as const)
     validate(typeof options[key] === "boolean", key);
   validate(
     options.boundary === null || (!!options.boundary && options.boundary.nodeType === 1),

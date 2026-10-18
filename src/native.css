@@ -1,0 +1,32 @@
+@import "./surface.css";
+.tg-native .tg-position {
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  height: max-content;
+  margin: var(--tg-gap, 12px);
+  max-width: min(var(--tg-max-width), calc(100dvw - 2 * var(--tg-viewport-padding, 12px)));
+  max-height: min(var(--tg-max-height), calc(100dvh - 2 * var(--tg-viewport-padding, 12px)));
+  position-try-fallbacks:
+    flip-block,
+    flip-inline,
+    flip-block flip-inline;
+  position-visibility: anchors-visible;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--tg-radius);
+  background: var(--tg-background);
+  box-shadow: var(--tg-shadow, 0 8px 28px #0003, 0 2px 6px #0002);
+  opacity: 0;
+  transition:
+    opacity 140ms linear,
+    visibility 0s 140ms;
+}
+.tg-native .tg-position[data-open] {
+  opacity: 1;
+  transition-delay: 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tg-native .tg-position {
+    transition: none;
+  }
+}

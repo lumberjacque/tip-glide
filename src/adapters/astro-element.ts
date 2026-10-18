@@ -1,7 +1,12 @@
 import { bindTipGlide } from "./binding.js";
 import type { TipGlideAdapterOptions } from "./binding.js";
 
-/** Internal Astro client registration. Importing is SSR-safe; invoke only in the browser. */
+/**
+ * Register `<tip-glide-group>` using the same binding as the framework adapters.
+ * @remarks Import is SSR-safe. Call only in a browser; repeated calls are harmless.
+ * Configure through the JSON `data-tip-glide-options` attribute. Import `tip-glide/style.css`.
+ * @public
+ */
 export function registerTipGlideElement() {
   if (customElements.get("tip-glide-group")) return;
   class TipGlideElement extends HTMLElement {

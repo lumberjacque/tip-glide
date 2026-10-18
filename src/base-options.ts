@@ -2,6 +2,8 @@ import type { TipGlideBaseOptions } from "./base.js";
 
 export type BaseOptions = Required<TipGlideBaseOptions> & { boundary: null };
 const defaults: BaseOptions = {
+  touch: "none",
+  hideOnDrag: true,
   placement: "top",
   gap: 12,
   viewportPadding: 12,
@@ -29,7 +31,9 @@ export function resolveBaseOptions(input: TipGlideBaseOptions, previous = defaul
   if (
     !["top", "right", "bottom", "left"].includes(config.placement) ||
     !["system", "reduced"].includes(config.motion) ||
-    typeof config.className !== "string"
+    typeof config.className !== "string" ||
+    !["none", "tap"].includes(config.touch) ||
+    typeof config.hideOnDrag !== "boolean"
   )
     throw new TypeError("tip-glide: invalid base configuration.");
   return config;

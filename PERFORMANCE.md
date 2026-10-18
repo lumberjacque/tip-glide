@@ -13,7 +13,7 @@ npm run bench:browser
 npm run bench:browser -- --same-size
 ```
 
-`verify` runs deterministic correctness/work-budget tests, builds both entries, checks gzip budgets, and installs the packed package in an isolated consumer. `bench` reports pure JavaScript geometry timings. `bench:browser` uses Playwright Core with installed Edge in headless mode. It does not start the website or take screenshots. Set `BROWSER_CHANNEL=chrome` or `BROWSER_EXECUTABLE` to use a different installed Chromium browser. No browser is automatically downloaded.
+`verify` runs deterministic correctness/work-budget tests, builds all three entries, checks gzip budgets, and installs the packed package in an isolated consumer. `bench` reports pure JavaScript geometry timings. `bench:browser` uses Playwright Core with installed Edge in headless mode. It does not start the website or take screenshots. Set `BROWSER_CHANNEL=chrome` or `BROWSER_EXECUTABLE` to use a different installed Chromium browser. No browser is automatically downloaded.
 
 The browser benchmark reports the browser version, initialization time for 1,000 triggers, median/p95 synchronous handoff cost, native frame intervals and total script/layout/style time across 150 frames. It compares no-library control, base and full (arrow + lean). The narrow profile uses a 390 × 844 viewport and 4× CPU throttling; it is **not a physical phone**. Handoffs occur every four browser frames. There is no artificial 30/60 fps cap.
 
@@ -23,12 +23,13 @@ Frame cadence in headless Edge varied substantially in the local run, even thoug
 
 `npm run size` bundles each shipped entry with esbuild, minifies it and applies Node's default gzip settings. CSS is compressed separately, as a separate browser resource, then added to JavaScript. Decimal kB means 1,000 bytes. Source maps, declarations, development tools and the private website are excluded.
 
-| Entry            |  JS gzip | CSS gzip | Combined | CI ceiling |
-| ---------------- | -------: | -------: | -------: | ---------: |
-| `tip-glide/base` | ~3.26 kB | ~0.65 kB | ~3.91 kB |    4,000 B |
-| `tip-glide`      | ~7.42 kB | ~0.67 kB | ~8.09 kB |    8,100 B |
+| Entry              |  JS gzip | CSS gzip | Combined | CI ceiling |
+| ------------------ | -------: | -------: | -------: | ---------: |
+| `tip-glide/base`   | ~3.99 kB | ~0.68 kB | ~4.67 kB |    4,700 B |
+| `tip-glide`        | ~8.17 kB | ~0.70 kB | ~8.87 kB |    8,900 B |
+| `tip-glide/native` | ~3.72 kB | ~0.74 kB | ~4.45 kB |    4,500 B |
 
-The script reports exact current bytes. It also fails if the base bundle pulls in the full renderer, liquid contour, full options or JavaScript motion module. Both entries have zero runtime package dependencies. Playwright and esbuild are development dependencies only.
+The script reports exact current bytes. It also fails if the base bundle pulls in the full renderer, liquid contour, full options or JavaScript motion module. All three entries have zero runtime package dependencies. Playwright and esbuild are development dependencies only.
 
 The 3 kB combined goal is **not met**. Base still includes the shared lifecycle, accessible descriptions, input handling, live motion preferences, resize/scroll handling, runtime validation and cleanup. The current regression ceiling records what the implementation actually achieves; it is not a claim that the original target passed. Full functionality remains available at the original import path.
 
@@ -64,3 +65,13 @@ Before/after runs of the fixed-text-size browser fixture used Edge 155.0.4283.45
 Timing figures are single local runs, with different frame scheduling and animation callback counts. They suggest less work but do not establish a repeatable percentage speedup or FPS gain. Avoiding redundant viewport writes is also covered by a deterministic regression test. The alternating-size fixture still updates SVG dimensions where the surface actually morphs, and checks settled geometry, default styling and CSS-variable overrides.
 
 Full combined gzip changed from 8,091 to 8,089 bytes: effectively unchanged. Base changed from 3,928 to 3,906 bytes. This round primarily reduces work while running, rather than download size.
+
+## Native placement and shared interactions, 0.4.0
+
+The previous 0.3.1 consumer bundles measured 8,098 bytes combined gzip for full and 3,918 for base. The new shared top-layer host, explicit touch/drag policy and shared removal registry bring them to 8,873 and 4,670 bytes. Regression ceilings were intentionally revised for these additional behaviors. They are not evidence of a size optimization. The native entry measures 4,454 bytes: only 216 bytes less than base, because it keeps the same accessibility and input lifecycle. It is not a sub-3-kB implementation.
+
+Native runtime work is the useful distinction: CSS owns placement and dimensions, with no trigger measurements, ResizeObserver or library animation/positioning frame loop. Full retains geometric routing and its liquid pointer. Native omits gliding, size morphing and advanced geometry rather than pretending CSS provides the same behavior.
+
+`npm run test:browser` runs real Chromium and WebKit at a touch-sized viewport, including a modal dialog/top-layer case, interrupted exits, viewport fallback, tap input, scrollable long text and removal cleanup. It asserts zero native-renderer geometry reads and scheduled frames. The CI browser job runs this separately from deterministic tests. These checks do not claim a physical iPhone frame rate.
+
+A real CDP touch gesture additionally guards scrolling in the top layer. Native scroll takeover emits `pointerleave`; the hover-close handler ignores that event for touch pointers so it does not dismiss the scrolling surface. A tooltip invoked from a modal dialog keeps its host inside that dialog's subtree, because a body sibling would remain inert even when painted in the top layer.

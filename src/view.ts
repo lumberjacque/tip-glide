@@ -1,3 +1,4 @@
+import { createOverlay } from "./overlay.js";
 import { clamp, getBoundary, opposite, place, pointer, route } from "./geometry.js";
 import type { Rect } from "./geometry.js";
 import { createPathSampler, easeOut } from "./motion.js";
@@ -21,8 +22,8 @@ export function createView(doc: Document, win: Window) {
     node.className = name;
     return node;
   };
-  const overlay = div("tg-overlay");
-  overlay.setAttribute("aria-hidden", "true");
+  const host = createOverlay(doc, "tg-overlay");
+  const overlay = host.element;
   const position = div("tg-position"),
     motion = div("tg-motion"),
     surface = div("tg-surface");
@@ -39,7 +40,6 @@ export function createView(doc: Document, win: Window) {
   motion.append(surface);
   position.append(motion);
   overlay.append(position, measurement, fuse);
-  doc.body.append(overlay);
   let state = { x: 0, y: 0, width: 0, height: 0 };
   let visible = false,
     lastTrigger: HTMLElement | undefined;
@@ -212,6 +212,7 @@ export function createView(doc: Document, win: Window) {
     instant: boolean,
     contentChanged: boolean,
   ) {
+    host.present(trigger);
     const reopening = !!exitAnimation;
     const initial = reopening && !instant ? presentation() : undefined;
     exitAnimation?.cancel();
@@ -313,14 +314,19 @@ export function createView(doc: Document, win: Window) {
       current.onfinish = () => {
         if (exitAnimation !== current) return;
         position.removeAttribute("data-open");
+        host.conceal();
         exitAnimation = undefined;
       };
-    } else position.removeAttribute("data-open");
+    } else {
+      position.removeAttribute("data-open");
+      host.conceal();
+    }
   }
   function stopFuse() {
     fuseAnimation?.cancel();
     fuseAnimation = undefined;
     fuse.hidden = true;
+    if (!visible && !exitAnimation) host.conceal();
   }
   function startFuse(
     trigger: HTMLElement,
@@ -331,6 +337,7 @@ export function createView(doc: Document, win: Window) {
   ) {
     stopFuse();
     if (!options.showFuse || !delay) return;
+    host.present(trigger);
     const { next, rect, bounds } = measure(trigger, text, options);
     const side = next.placement,
       horizontal = side === "top" || side === "bottom";
@@ -365,7 +372,7 @@ export function createView(doc: Document, win: Window) {
     destroy() {
       stopTravel();
       overlay.getAnimations?.({ subtree: true }).forEach((animation) => animation.cancel());
-      overlay.remove();
+      host.destroy();
     },
   };
 }

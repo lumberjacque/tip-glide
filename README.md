@@ -50,12 +50,15 @@ Pass `document` instead of an element to register all initial `[data-tip]` eleme
 
 ### Choose an entry
 
-Both entries share registration, input handling, accessible descriptions and cleanup. Import the JavaScript and CSS for the entry you use:
+All three entries share registration, input handling, accessible descriptions and cleanup. Import the JavaScript and CSS for the entry you use:
 
-| Entry                                   | Features                                                                                             | Measured JS + CSS gzip |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------: |
-| `tip-glide` + `tip-glide/style.css`     | Full motion, liquid pointer, lean, fuse, custom transitions, 360° placement and container boundaries |                8.09 kB |
-| `tip-glide/base` + `tip-glide/base.css` | Native CSS travel and size transitions, four-side placement, viewport constraints and fixed fades    |                3.91 kB |
+| Entry                                       | Features                                                                                                 | Measured JS + CSS gzip |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------: |
+| `tip-glide` + `tip-glide/style.css`         | Full motion, liquid pointer, lean, fuse, custom transitions, 360° placement and container boundaries     |                8.87 kB |
+| `tip-glide/base` + `tip-glide/base.css`     | CSS travel and size transitions; JS placement, four-side placement, viewport constraints and fixed fades |                4.67 kB |
+| `tip-glide/native` + `tip-glide/native.css` | CSS Anchor Positioning, content sizing, viewport fallback and opacity fades; no geometric travel         |                4.45 kB |
+
+The native entry, touch policy, drag policy and public custom-element adapter are available from version 0.4.0.
 
 The base entry is available from version 0.2.0:
 
@@ -71,6 +74,22 @@ The base entry keeps the shared tooltip, size morphing, hover delays, keyboard b
 Use the full entry for liquid arrows, lean, fuse, custom enter/exit animations, element boundaries or arbitrary-angle placement and routing. Those visual modules are excluded from the base consumer bundle. Import the stylesheet matching your entry; each contains its own shared styles.
 
 Sizes come from minified consumer bundles, with JavaScript and CSS compressed separately. They exclude declarations, tests and the private demo website. See [measurement methodology and limitations](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for exact results and reproducible commands.
+
+### Native CSS positioning
+
+```ts
+import { createTipGlide, supportsNativeTipGlide } from "tip-glide/native";
+import "tip-glide/native.css";
+
+if (supportsNativeTipGlide()) {
+  const tips = createTipGlide(document, { placement: "top", touch: "tap" });
+  // Call tips.destroy() when the owning view unmounts.
+}
+```
+
+The native entry requires the Popover API, CSS `position-area` and `position-try-fallbacks`. Capability detection is SSR-safe. On unsupported browsers, explicitly load `tip-glide/base` and its CSS instead; the native entry does not bundle a fallback. See [MDN's anchor positioning guide](https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Anchor_positioning/Using).
+
+CSS owns cardinal placement, opposite-side fallback, content dimensions and visibility when the anchor leaves its scroll container. This entry does not read trigger geometry or schedule positioning/animation frames. It fades rather than gliding or morphing between anchors. It has no `duration`, pointer, lean, fuse, numeric angle or element boundary. `viewportPadding` limits the maximum content size; native placement chooses the available position. Use full for the geometric experience, or base for CSS-interpolated travel with JavaScript placement. Both remain supported.
 
 ### Dynamic triggers and cleanup
 
@@ -112,28 +131,30 @@ An old cleanup function cannot remove a newer registration. Empty descriptions a
 
 ### Options
 
-| Option            | Default    | Meaning                                                                                |
-| ----------------- | ---------- | -------------------------------------------------------------------------------------- |
-| `placement`       | `'top'`    | A side or degrees: 0 above, 90 right, 180 below, 270 left. Angles wrap at 360.         |
-| `boundary`        | `null`     | An element's client box intersected with the visible viewport; null uses the viewport. |
-| `arrow`           | `false`    | Pointer integrated into the rounded contour.                                           |
-| `arrowBlend`      | `0.7`      | Pointer join: `0` geometric, `1` liquid; finite values from 0 to 1.                    |
-| `enter`           | `'scale'`  | `'scale'`, `'fade'`, `'slide'`, `'none'`, or a custom `TipAnimation`.                  |
-| `exit`            | `'scale'`  | Same presets or custom keyframes, independent from entry.                              |
-| `gap`             | `12`       | Distance from the trigger, in CSS pixels.                                              |
-| `viewportPadding` | `12`       | Padding inside the effective viewport/container boundary, in CSS pixels.               |
-| `openDelay`       | `400`      | First pointer hover delay, in milliseconds. Focus opens immediately.                   |
-| `closeDelay`      | `120`      | Time to cross the gap to the tooltip or another trigger.                               |
-| `warmDuration`    | `600`      | After closing, subsequent hovers skip the delay within this window.                    |
-| `duration`        | `180`      | Travel and size morph duration. Set to `0` for instant handoffs.                       |
-| `lean`            | `true`     | A bounded directional tilt during a handoff.                                           |
-| `showFuse`        | `false`    | Initial delay progress on the trigger edge facing the resolved tooltip.                |
-| `motion`          | `'system'` | Follow live reduced-motion settings, or use `'reduced'` explicitly.                    |
-| `className`       | `''`       | Class on the body-mounted overlay for styling.                                         |
+| Option            | Default    | Meaning                                                                                      |
+| ----------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `touch`           | `'none'`   | Opt into `'tap'` toggling on dedicated information triggers. Normal click actions still run. |
+| `hideOnDrag`      | `true`     | Dismiss after a primary pointer moves over 6 CSS pixels or a native drag starts.             |
+| `placement`       | `'top'`    | A side or degrees: 0 above, 90 right, 180 below, 270 left. Angles wrap at 360.               |
+| `boundary`        | `null`     | An element's client box intersected with the visible viewport; null uses the viewport.       |
+| `arrow`           | `false`    | Pointer integrated into the rounded contour.                                                 |
+| `arrowBlend`      | `0.7`      | Pointer join: `0` geometric, `1` liquid; finite values from 0 to 1.                          |
+| `enter`           | `'scale'`  | `'scale'`, `'fade'`, `'slide'`, `'none'`, or a custom `TipAnimation`.                        |
+| `exit`            | `'scale'`  | Same presets or custom keyframes, independent from entry.                                    |
+| `gap`             | `12`       | Distance from the trigger, in CSS pixels.                                                    |
+| `viewportPadding` | `12`       | Padding inside the effective viewport/container boundary, in CSS pixels.                     |
+| `openDelay`       | `400`      | First pointer hover delay, in milliseconds. Focus opens immediately.                         |
+| `closeDelay`      | `120`      | Time to cross the gap to the tooltip or another trigger.                                     |
+| `warmDuration`    | `600`      | After closing, subsequent hovers skip the delay within this window.                          |
+| `duration`        | `180`      | Travel and size morph duration. Set to `0` for instant handoffs.                             |
+| `lean`            | `true`     | A bounded directional tilt during a handoff.                                                 |
+| `showFuse`        | `false`    | Initial delay progress on the trigger edge facing the resolved tooltip.                      |
+| `motion`          | `'system'` | Follow live reduced-motion settings, or use `'reduced'` explicitly.                          |
+| `className`       | `''`       | Class on the body-mounted overlay for styling.                                               |
 
 ### Styling
 
-Import the stylesheet matching your entry once: `tip-glide/style.css` for full or `tip-glide/base.css` for base. Both are marked as side effects for bundlers; JavaScript does not inject styles. Create a theme by passing `className: 'my-tips'`:
+Import the stylesheet matching your entry once: `tip-glide/style.css` for full or `tip-glide/base.css` for base, or `tip-glide/native.css` for native. All are marked as side effects for bundlers; JavaScript does not inject styles. Create a theme by passing `className: 'my-tips'`:
 
 ```css
 .my-tips {
@@ -152,7 +173,7 @@ Import the stylesheet matching your entry once: `tip-glide/style.css` for full o
 }
 ```
 
-The visual overlay is mounted directly under `document.body` to escape ordinary clipping containers. Root-local CSS variables do not inherit into it; use the overlay class. Internal `.tg-*` DOM is not a public API. Colors, font and variables are the supported styling surface.
+The visual overlay is mounted under `document.body` (inside the trigger's modal dialog when applicable, so it remains interactive) and uses a manual Popover API host in the browser top layer, including above modal dialogs. Full and base fall back to an ordinary body host when the API is unavailable. Root-local CSS variables do not inherit into it; use the overlay class. Internal `.tg-*` DOM is not a public API. Colors, font and variables are the supported styling surface.
 
 ### Angles, boundaries and custom motion
 
@@ -164,6 +185,7 @@ if (!canvas) throw new Error("Canvas not found");
 
 const tips = createTipGlide(canvas, {
   boundary: canvas,
+  hideOnDrag: false, // Deliberate positioning demo; normal tooltips dismiss during drag.
   placement: 315,
   arrow: true,
   showFuse: true,
@@ -190,6 +212,22 @@ Custom animation keyframes run on a dedicated entrance/exit layer, separate from
 The core import stays framework independent. From version 0.3.0, optional entry points integrate with React, Vue 3, Svelte 4/5, Angular, Solid, Preact and Astro. Import `tip-glide/style.css` once in your application. You do not need to write mounting or cleanup hooks.
 
 Adapters watch their group's `data-tip` attributes and children. Conditional triggers register automatically, changed descriptions update, and removed triggers unregister. Configuration updates replace the previous configuration, so omitted fields reset to their documented defaults. Existing `aria-describedby` tokens are preserved.
+
+#### Web Component
+
+```ts
+import { registerTipGlideElement } from "tip-glide/element";
+import "tip-glide/style.css";
+registerTipGlideElement(); // Browser only; repeated registration is harmless.
+```
+
+```html
+<tip-glide-group data-tip-glide-options='{"arrow":true,"touch":"tap"}'>
+  <button data-tip="More information">Info</button>
+</tip-glide-group>
+```
+
+This is the same group binding used by Astro and the other adapters. It watches dynamic descriptions, updates JSON options and releases everything on disconnect. It uses light DOM, preserves existing ARIA descriptions and does not load a framework. Choosing a Web Component changes ownership and markup; the geometry still uses the full renderer.
 
 #### React
 
@@ -361,6 +399,10 @@ Every trigger receives its own stable plain-text `role="tooltip"` description re
 
 Reduced motion removes travel, tilt and size animation; the fuse becomes a static indicator. Live system changes are respected. Tooltip triggers must have meaningful visible labels or accessible names. Do not put essential instructions solely inside a tooltip. Do not put links or controls inside one; use a popover instead. Behavior is informed by the [WAI-ARIA tooltip pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/).
 
+Hover is ignored for touch pointers by default. Set `touch: "tap"` on dedicated information buttons to toggle a tooltip on tap; another tap, an outside touch, Escape or a drag dismisses it. Tapping does not cancel the trigger's normal action. Avoid attaching tap tooltips to links or primary actions that immediately navigate. `alwaysVisible` in adapters is a preview option, separate from tap support. Essential instructions should remain visible without a tooltip.
+
+Normal tooltips dismiss during a drag (`hideOnDrag: true`). Intentional positioning demos may opt out with `hideOnDrag: false`; the geometric renderer and its arrow keep following the trigger. Touch movements exceeding the threshold never become a tap toggle.
+
 Long descriptions support native scrolling inside the shared surface, including touch gestures. A touch inside the tooltip preserves it; touching outside still dismisses it.
 
 ## Troubleshooting
@@ -382,9 +424,9 @@ npm run test
 npm run verify
 ```
 
-`src/lifecycle.ts` shares input handling, registration and cleanup between both entries. The full entry is defined in `src/index.ts`; the lightweight entry is in `src/base.ts`. Renderers own DOM measurement and visual motion, with placement, routing and contour math in separate modules. Tests cover positioning, rapid handoffs, timing, focus, Escape, touch, description ownership and reduced motion. DOM simulation tests do not substitute for browser motion checks.
+`src/lifecycle.ts` shares input handling, registration and cleanup between the three entries. The full entry is defined in `src/index.ts`; the lightweight entry is in `src/base.ts`. Renderers own DOM measurement and visual motion, with placement, routing and contour math in separate modules. Tests cover positioning, rapid handoffs, timing, focus, Escape, touch, description ownership and reduced motion. The renderer contract is in `src/view-contract.ts`; `src/overlay.ts` owns top-layer lifetime and `src/removals.ts` shares one removal observer per document. The optional Web Component and framework adapters reuse the same binding. No state-machine or rendering dependency is required. DOM simulation tests do not substitute for browser motion checks. `npm run test:browser` checks Chromium and WebKit layout, top layer, touch, interruptions and cleanup without screenshots; CI installs these two test browsers. See [architecture](./ARCHITECTURE.md).
 
-`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 8.1 kB for full and 4 kB for base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
+`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 8.9 kB for full, 4.7 kB for base and 4.5 kB for native. The interaction/top-layer additions increased full and base by about 0.7 kB; native reduces layout work but only modestly reduces download size versus base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
 
 `npm run bench` reports pure geometry timings. `npm run bench:browser` compares both entries in installed Edge on desktop and narrow viewports, without starting the demo website. See [PERFORMANCE.md](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for browser selection, workloads and measurement limits.
 
