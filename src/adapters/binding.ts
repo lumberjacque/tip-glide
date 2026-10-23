@@ -43,7 +43,11 @@ export function bindTipGlide(root: HTMLElement, input: TipGlideAdapterOptions = 
     for (const trigger of triggers) {
       const text = trigger.getAttribute("data-tip") ?? "";
       if (!text.trim() || entries.get(trigger)?.text === text) continue;
-      entries.set(trigger, { text, remove: controller.add(trigger, text) });
+      const entry = entries.get(trigger);
+      if (entry) {
+        controller.setContent(trigger, text);
+        entry.text = text;
+      } else entries.set(trigger, { text, remove: controller.add(trigger, text) });
       if (pinned === trigger) pinned = undefined;
     }
     const first = Array.from(triggers).find((trigger) => entries.has(trigger));

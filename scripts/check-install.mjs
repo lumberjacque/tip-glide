@@ -97,16 +97,18 @@ try {
     join(consumer, "imports.mjs"),
     `
 import { createTipGlide } from "tip-glide";
+import { createTipGlideScope } from "tip-glide/scope";
+const scope = createTipGlideScope({ lean: true }); scope.destroy();
 import { createTipGlide as createBase } from "tip-glide/base";
 import { createTipGlide as createNative, supportsNativeTipGlide } from "tip-glide/native";
 import { registerTipGlideElement } from "tip-glide/element";
 if (typeof createNative !== "function" || typeof registerTipGlideElement !== "function" || supportsNativeTipGlide()) throw new Error("Native/element SSR import failed");
 import "@angular/compiler";
 import { TipGlide as ReactGroup } from "tip-glide/react";
-import { vTipGlide } from "tip-glide/vue";
-import { tipGlide } from "tip-glide/svelte";
-import { TipGlide as PreactGroup } from "tip-glide/preact";
-import { createTipGlideRef } from "tip-glide/solid";
+import { vTipGlide, createTipGlidePlugin } from "tip-glide/vue";
+import { tipGlide, provideTipGlide as provideSvelteTipGlide, useTooltip as useSvelteTooltip } from "tip-glide/svelte";
+import { TipGlide as PreactGroup, TipGlideProvider as PreactProvider, useTooltip as usePreactTooltip } from "tip-glide/preact";
+import { createTipGlideRef, TipGlideProvider as SolidProvider, tooltip } from "tip-glide/solid";
 import { TipGlideDirective } from "tip-glide/angular";
 if ([ReactGroup, tipGlide, PreactGroup, createTipGlideRef, TipGlideDirective].some((value) => typeof value !== "function") || !vTipGlide.mounted)
   throw new Error("Missing framework export.");
@@ -135,23 +137,33 @@ import { createTipGlide, type TipGlide, type TipGlideOptions, type Placement,
   type MotionPreference, type TipAnimation, type TipTransition } from "tip-glide";
 import { createTipGlide as createBase, type TipGlideBase, type TipGlideBaseOptions } from "tip-glide/base";
 import { createTipGlide as createNative, type TipGlideNativeOptions } from "tip-glide/native";
+import { createTipGlideScope } from "tip-glide/scope";
 import { createElement } from "react";
-import { TipGlide as ReactGroup, useTipGlide, type TipGlideAdapterOptions } from "tip-glide/react";
-import { vTipGlide } from "tip-glide/vue";
-import { tipGlide } from "tip-glide/svelte";
-import { TipGlide as PreactGroup } from "tip-glide/preact";
-import { createTipGlideRef } from "tip-glide/solid";
+import { TipGlide as ReactGroup, useTipGlide, TipGlideProvider as ReactProvider, useTooltip as useReactTooltip, type TipGlideAdapterOptions } from "tip-glide/react";
+import { vTipGlide, createTipGlidePlugin } from "tip-glide/vue";
+import { tipGlide, provideTipGlide as provideSvelteTipGlide, useTooltip as useSvelteTooltip } from "tip-glide/svelte";
+import { TipGlide as PreactGroup, TipGlideProvider as PreactProvider, useTooltip as usePreactTooltip } from "tip-glide/preact";
+import { createTipGlideRef, TipGlideProvider as SolidProvider, tooltip } from "tip-glide/solid";
 import { TipGlideDirective } from "tip-glide/angular";
+createElement(ReactProvider, { options: { lean: true, warmDuration: 900 } });
+useReactTooltip<HTMLButtonElement>("Save");
+// @ts-expect-error Tooltip bindings accept text, not options or arbitrary objects.
+useReactTooltip({ lean: true });
 const adapted: TipGlideAdapterOptions = { boundary: "root", alwaysVisible: true, arrow: true };
 createElement(ReactGroup, { options: adapted });
 useTipGlide<HTMLDivElement>(adapted);
 createTipGlideRef(() => adapted);
-void [vTipGlide, tipGlide, PreactGroup, TipGlideDirective];
+void [vTipGlide, tipGlide, PreactGroup, TipGlideDirective, SolidProvider, tooltip, provideSvelteTipGlide, useSvelteTooltip, PreactProvider, usePreactTooltip, createTipGlidePlugin];
 // @ts-expect-error Adapters accept only a root boundary or actual element.
 const invalid: TipGlideAdapterOptions = { boundary: "viewport" };
 void invalid;
 declare const root: HTMLElement;
 declare const trigger: HTMLButtonElement;
+const appScope = createTipGlideScope({ lean: true, warmDuration: 800 });
+const registration = appScope.attach(trigger, "Save"); registration.update(null); registration.destroy(); appScope.destroy();
+// @ts-expect-error Scope bindings accept plain text, not HTML elements.
+appScope.attach(trigger, document.createElement("div"));
+
 const placement: Placement = 45;
 const motion: MotionPreference = "system";
 const enter: TipAnimation = { keyframes: [{ opacity: 0 }, { opacity: 1 }], duration: 180 };
@@ -159,7 +171,7 @@ const exit: TipTransition = "fade";
 const options: TipGlideOptions = { placement, motion, enter, exit, arrow: true };
 const tips: TipGlide = createTipGlide(root, options);
 const remove = tips.add(trigger, "Description");
-tips.show(trigger); tips.reposition(); tips.update({ lean: false }); tips.hide();
+tips.show(trigger); tips.setContent(trigger, "Updated"); tips.reposition(); tips.update({ lean: false }); tips.hide();
 remove(); tips.destroy();
 // @ts-expect-error Placement must be a side or numeric angle.
 createTipGlide(root, { placement: "diagonal" });
@@ -210,9 +222,10 @@ basic.update({ placement: 45 });
     join(consumer, "angular-consumer.ts"),
     `
 import { Component } from "@angular/core";
-import { TipGlideDirective, type TipGlideAdapterOptions } from "tip-glide/angular";
-@Component({ standalone: true, imports: [TipGlideDirective], template: '<nav [tipGlide]="options"><button data-tip="Save">Save</button></nav>' })
-export class Toolbar { readonly options: TipGlideAdapterOptions = { arrow: true, boundary: "root" }; }
+import { TipGlideDirective, TipGlideGroupDirective, provideTipGlide, type TipGlideAdapterOptions } from "tip-glide/angular";
+export const providers = [provideTipGlide({ lean: true, warmDuration: 900 })];
+@Component({ standalone: true, imports: [TipGlideDirective, TipGlideGroupDirective], template: '<button [tipGlide]="text">Save</button><button tipGlide="Static text">Info</button><nav [tipGlideGroup]="options"><button data-tip="Save">Save</button></nav>' })
+export class Toolbar { text: string | null = "Dynamic text"; readonly options: TipGlideAdapterOptions = { arrow: true, boundary: "root" }; }
 `,
   );
   await writeFile(

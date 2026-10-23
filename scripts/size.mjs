@@ -5,13 +5,14 @@ import assert from "node:assert/strict";
 
 const rows = [];
 const override = process.argv.find((arg) => arg.startsWith("--base-budget="));
-const baseBudget = override ? Number(override.split("=")[1]) : 4700;
+const baseBudget = override ? Number(override.split("=")[1]) : 4800;
 if (!Number.isSafeInteger(baseBudget) || baseBudget <= 0)
   throw new RangeError("--base-budget must be a positive number of bytes.");
 for (const [name, entry, stylesheet, budget] of [
-  ["full", "index", "style", 8900],
+  ["full", "index", "style", 9000],
   ["base", "base", "base", baseBudget],
   ["native", "native", "native", 4500],
+  ["scope", "scope", "style", 10000],
 ]) {
   const result = await build({
     entryPoints: [`dist/${entry}.js`],
@@ -25,7 +26,12 @@ for (const [name, entry, stylesheet, budget] of [
   const css = await readFile(`dist/${stylesheet}.css`);
   const jsGzip = gzipSync(js).length,
     cssGzip = gzipSync(css).length;
-  if (name !== "full") {
+  if (name !== "scope")
+    assert(
+      !Object.keys(result.metafile.inputs).includes("dist/scope.js"),
+      `${name} must not bundle application scopes`,
+    );
+  if (name === "base" || name === "native") {
     const inputs = Object.keys(result.metafile.inputs);
     for (const advanced of ["skin.js", "view.js", "options.js", "motion.js"])
       assert(

@@ -14,7 +14,7 @@ One shared tooltip, gliding between elements. Framework-independent TypeScript w
 - **Keyboard and reduced motion.** Keyboard focus opens immediately, Escape dismisses, and system motion preferences are respected.
 - **Framework independent.** Use vanilla JavaScript, React, Vue or Svelte through their normal lifecycle APIs.
 
-[Installation](#installation) · [Quick start](#quick-start) · [API](#api) · [Styling](#styling) · [Frameworks](#framework-adapters) · [Accessibility](#accessibility)
+[Installation](#installation) · [Quick start](#quick-start) · [API](#api) · [Styling](#styling) · [Frameworks](#application-configuration) · [Accessibility](#accessibility)
 
 ## Installation
 
@@ -121,6 +121,7 @@ All public types and methods include TSDoc in the published declaration files.
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `createTipGlide(root, options?)` | Register the initial triggers and return a group controller.                                                                                                             |
 | `add(trigger, text?)`            | Register or replace a trigger's text. Defaults to `data-tip`. Returns an idempotent cleanup function. Replacing a registration dismisses that trigger's current tooltip. |
+| `setContent(trigger, text)`      | Update a registered description without closing its tooltip. Empty text unregisters it; unknown triggers are ignored.                                                    |
 | `show(trigger)`                  | Immediately show a registered trigger, with glide if another surface was visible. Does not focus the trigger. Unknown or disconnected triggers are ignored.              |
 | `hide()`                         | Dismiss and cancel pending opening. New input or an explicit `show()` can reopen.                                                                                        |
 | `update(options)`                | Merge partial settings, cancel pending opening and re-measure a visible surface. Invalid settings throw before changing state.                                           |
@@ -207,7 +208,241 @@ Placement follows the exact requested angle, then slides along the boundary when
 
 Custom animation keyframes run on a dedicated entrance/exit layer, separate from travel, lean and size morphing. When the browser provides `KeyframeEffect`, keyframes and timing are validated before creating a group or applying an update. Provide at least two valid Web Animations keyframes; durations must be finite and nonnegative, easing must be valid CSS. Prefer transform and opacity. The default durations are 180 ms on entry and 140 ms on exit. System reduced motion and keyboard focus bypass custom effects too. `duration: 0` disables travel and resize, while `enter: 'none'` and `exit: 'none'` disable the respective effects.
 
-### Framework adapters
+<a id="application-configuration"></a>
+
+### Application-wide configuration (since 0.5.0)
+
+Version 0.5.0 adds centrally configured trigger bindings to all framework adapters. Configure the application once, then pass only plain text at each trigger. Separate components share one visual tooltip and its warm timing. Empty text, `null`, `undefined` or `false` disables a trigger. Live text changes keep an open tooltip visible and preserve its accessible description token.
+
+For application code, start with the provider/plugin examples below. Use a local group only when its tooltips need independent configuration or a separate boundary.
+
+Create a provider/plugin per application or SSR request. No DOM is allocated until the first nonempty trigger mounts. The last trigger releases its document group. Nested context providers create independent scopes; existing group adapters remain available for local demos and boundaries. Import `tip-glide/style.css` once globally.
+
+#### Angular application configuration
+
+```ts
+// app.config.ts
+import type { ApplicationConfig } from "@angular/core";
+import { provideTipGlide } from "tip-glide/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideTipGlide({ lean: true, arrow: true, warmDuration: 800 })],
+};
+```
+
+```ts
+import { Component, signal } from "@angular/core";
+import { TipGlideDirective } from "tip-glide/angular";
+
+@Component({
+  imports: [TipGlideDirective],
+  template: `
+    <button tipGlide="Save changes">Save</button>
+    <button [tipGlide]="message()">Status</button>
+  `,
+})
+export class Toolbar {
+  readonly message = signal<string | null>("Ready to save");
+}
+```
+
+Standalone components still import the directive, as with other Angular directives. They do not create their own tooltip groups. `provideTipGlide` owns defaults at the application/route injector. For an explicit local group, use `[tipGlideGroup]="options"` and import `TipGlideGroupDirective`. The older object-valued `[tipGlide]="options"` remains supported. An empty bare `tipGlide` attribute now means disabled text; migrate old bare group containers to `tipGlideGroup`.
+
+#### React and Preact application configuration
+
+```tsx
+// Root.tsx
+import App from "./App";
+import { TipGlideProvider } from "tip-glide/react";
+import "tip-glide/style.css";
+
+export function Root() {
+  return (
+    <TipGlideProvider options={{ lean: true, arrow: true, warmDuration: 800 }}>
+      <App />
+    </TipGlideProvider>
+  );
+}
+```
+
+```tsx
+// SaveButton.tsx
+import { useTooltip } from "tip-glide/react";
+
+export function SaveButton({ saved }: { saved: boolean }) {
+  const tooltip = useTooltip<HTMLButtonElement>(saved ? "Saved" : "Save changes");
+  return <button ref={tooltip}>Save</button>;
+}
+```
+
+#### React SSR and Next.js App Router
+
+The provider is safe to server-render. Each instance creates its own lazy scope; it never stores application configuration in a mutable module-level singleton. The server renders normal button markup without tooltip DOM, listeners, timers or animation work. Native element refs attach after commit, and reactive configuration/text updates run in client effects. Accessible tooltip descriptions become available after hydration. SSR safety does not mean a tooltip is interactive before JavaScript loads.
+
+For the App Router, keep the provider and hook consumers behind client boundaries. The root layout can remain a Server Component:
+
+```tsx
+// app/providers.tsx
+"use client";
+
+import type { ReactNode } from "react";
+import { TipGlideProvider } from "tip-glide/react";
+
+export function Providers({ children }: { children: ReactNode }) {
+  return (
+    <TipGlideProvider options={{ lean: true, arrow: true, warmDuration: 800 }}>
+      {children}
+    </TipGlideProvider>
+  );
+}
+```
+
+```tsx
+// app/layout.tsx: remains a Server Component
+import type { ReactNode } from "react";
+import { Providers } from "./providers";
+import "tip-glide/style.css";
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+Add `"use client"` at the top of the `SaveButton.tsx` example when using the App Router. Pass plain serializable options through a Server-to-Client boundary; create browser-specific values such as an element boundary on the client. Ordinary client-rendered React applications do not need the directive.
+
+The scope passed through context keeps a stable identity. Changing a trigger's text does not recreate the shared controller, and `useTooltip` keeps a stable ref while its provider is unchanged. Ref replacement, unmount and Strict Mode replay release the registration. When the last nonempty trigger unmounts, the document group is destroyed; a later trigger starts with a fresh warm history. `useTooltip` must be called unconditionally at the top level of a component, like other hooks. To disable a tooltip, pass `null` rather than conditionally calling the hook.
+
+For a design-system button, forward the returned ref to its native element. If that element already has a ref, compose the refs rather than replacing one. Keep a visible label or accessible name on the button; tooltip text is a description, not a replacement for its name.
+
+The ownership follows [React context](https://react.dev/reference/react/useContext) for shared configuration and [custom hooks/effects](https://react.dev/reference/react/useEffect) for synchronizing the external tooltip controller. The App Router examples follow the documented [client provider boundary](https://nextjs.org/docs/app/getting-started/server-and-client-components#context-providers). This is the intended integration pattern; it does not remove the need to test hydration and focus behavior in the consuming application.
+
+Preact uses the same provider/ref interface from `tip-glide/preact`, with Preact's own context and hooks. Providers render no extra element; portal triggers retain their context. Strict Mode replay, ref replacement and unmount release registrations automatically. Calling `useTooltip` outside a provider throws a setup error.
+
+#### Vue application configuration
+
+```ts
+// main.ts
+import { createApp } from "vue";
+import App from "./App.vue";
+import { createTipGlidePlugin } from "tip-glide/vue";
+import "tip-glide/style.css";
+
+createApp(App)
+  .use(createTipGlidePlugin({ lean: true, arrow: true, warmDuration: 800 }))
+  .mount("#app");
+```
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+const message = ref<string | null>("Save changes");
+</script>
+<template>
+  <button v-tip-glide="'Save changes'">Save</button>
+  <button v-tip-glide="message">Status</button>
+</template>
+```
+
+The plugin registers the text directive globally. A locally imported `vTipGlide` also finds the app's plugin scope. Text bindings require the plugin. Object-valued directives retain their previous local group behavior.
+
+#### Svelte application configuration
+
+```svelte
+<!-- App.svelte: also suitable for a root layout -->
+<script lang="ts">
+  import { provideTipGlide } from 'tip-glide/svelte';
+  import Toolbar from './Toolbar.svelte';
+  import 'tip-glide/style.css';
+  provideTipGlide({ lean: true, arrow: true, warmDuration: 800 });
+</script>
+<Toolbar />
+```
+
+```svelte
+<!-- Toolbar.svelte -->
+<script lang="ts">
+  import { useTooltip } from 'tip-glide/svelte';
+  export let message: string | null = 'Save changes';
+  const tooltip = useTooltip();
+</script>
+<button use:tooltip={'Save changes'}>Save</button>
+<button use:tooltip={message}>Status</button>
+```
+
+Call provider/context helpers during component initialization. One returned action can serve any number of triggers. Svelte owns action updates and destruction; no mounting hooks are needed in consumer code. The older `tipGlide` action continues to configure local groups.
+
+#### Solid application configuration
+
+```tsx
+import { createSignal } from "solid-js";
+import { TipGlideProvider, tooltip } from "tip-glide/solid";
+import "tip-glide/style.css";
+
+function Toolbar() {
+  const [message] = createSignal<string | null>("Save changes");
+  return <button ref={(element) => tooltip(element, message)}>Save</button>;
+}
+
+export function App() {
+  return (
+    <TipGlideProvider options={{ lean: true, arrow: true, warmDuration: 800 }}>
+      <Toolbar />
+    </TipGlideProvider>
+  );
+}
+```
+
+The same helper can be used as `use:tooltip={message()}` with Solid's directive compilation. The provider owns configuration and each directive's owner handles mount, updates and cleanup. The older `createTipGlideRef` remains a local group helper.
+
+#### Astro application configuration
+
+Astro's existing component already provides the root-container form. Put it once in the shared layout and provide text on individual elements:
+
+```astro
+---
+import TipGlideProvider from 'tip-glide/astro';
+---
+<TipGlideProvider options={{ lean: true, arrow: true, warmDuration: 800 }}>
+  <slot />
+</TipGlideProvider>
+```
+
+```astro
+---
+const message = 'Save changes';
+---
+<button data-tip={message}>Save</button>
+```
+
+The component includes CSS and its client registration. It watches conditional elements and `data-tip` updates, including DOM changes made by islands. Its options are JSON-serializable; do not put DOM references or functions in Astro props. Client navigation disconnects the old group and mounts the new layout group.
+
+#### Framework-independent scopes
+
+```ts
+import { createTipGlideScope } from "tip-glide/scope";
+import "tip-glide/style.css";
+
+const app = createTipGlideScope({ lean: true, warmDuration: 800 });
+const save = app.attach(saveButton, "Save changes");
+const status = app.attach(statusButton, "Ready");
+status.update("Saved");
+save.destroy();
+app.destroy();
+```
+
+The optional scope entry is shared by the framework adapters. It does not enter the default, base or native bundles. `configure(options)` replaces central defaults. Triggers in another document receive that document's own group. Description updates use `setContent(trigger, text)` without re-registering the trigger; `add()` retains its existing replacement behavior.
+
+<a id="framework-adapters"></a>
+
+### Local tooltip groups
+
+The application-wide bindings above are the starting point for shared application tooltips. The group adapters below intentionally own an independent local group. Choose them for isolated previews or a local boundary; do not create one group per button when tooltips should glide between components.
 
 The core import stays framework independent. From version 0.3.0, optional entry points integrate with React, Vue 3, Svelte 4/5, Angular, Solid, Preact and Astro. Import `tip-glide/style.css` once in your application. You do not need to write mounting or cleanup hooks.
 
@@ -303,19 +538,19 @@ Import the standalone directive in your component. The library ships Angular's p
 
 ```ts
 import { Component } from "@angular/core";
-import { TipGlideDirective, type TipGlideAdapterOptions } from "tip-glide/angular";
+import { TipGlideGroupDirective, type TipGlideAdapterOptions } from "tip-glide/angular";
 import "tip-glide/style.css";
 
 @Component({
-  imports: [TipGlideDirective],
-  template: '<nav [tipGlide]="options"><button data-tip="Save a copy">Save</button></nav>',
+  imports: [TipGlideGroupDirective],
+  template: '<nav [tipGlideGroup]="options"><button data-tip="Save a copy">Save</button></nav>',
 })
 export class Toolbar {
   readonly options: TipGlideAdapterOptions = { arrow: true, lean: true };
 }
 ```
 
-The directive starts after the browser renders. Bound options update automatically; destruction cancels pending setup and destroys the group. Supports Angular 21 and 22.
+The directive starts after the browser renders. Bound options update automatically; destruction cancels pending setup and destroys the group. Supports Angular 21 and 22. `TipGlideGroupDirective` is available from 0.5.0. With published 0.3.x/0.4.x, use `TipGlideDirective` and an object-valued `[tipGlide]="options"` for this older group form.
 
 #### Solid
 
@@ -426,7 +661,7 @@ npm run verify
 
 `src/lifecycle.ts` shares input handling, registration and cleanup between the three entries. The full entry is defined in `src/index.ts`; the lightweight entry is in `src/base.ts`. Renderers own DOM measurement and visual motion, with placement, routing and contour math in separate modules. Tests cover positioning, rapid handoffs, timing, focus, Escape, touch, description ownership and reduced motion. The renderer contract is in `src/view-contract.ts`; `src/overlay.ts` owns top-layer lifetime and `src/removals.ts` shares one removal observer per document. The optional Web Component and framework adapters reuse the same binding. No state-machine or rendering dependency is required. DOM simulation tests do not substitute for browser motion checks. `npm run test:browser` checks Chromium and WebKit layout, top layer, touch, interruptions and cleanup without screenshots; CI installs these two test browsers. See [architecture](./ARCHITECTURE.md).
 
-`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 8.9 kB for full, 4.7 kB for base and 4.5 kB for native. The interaction/top-layer additions increased full and base by about 0.7 kB; native reduces layout work but only modestly reduces download size versus base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
+`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 9 kB for full, 4.8 kB for base and 4.5 kB for native. The interaction/top-layer additions increased full and base by about 0.7 kB; native reduces layout work but only modestly reduces download size versus base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
 
 `npm run bench` reports pure geometry timings. `npm run bench:browser` compares both entries in installed Edge on desktop and narrow viewports, without starting the demo website. See [PERFORMANCE.md](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for browser selection, workloads and measurement limits.
 

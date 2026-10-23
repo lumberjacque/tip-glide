@@ -25,9 +25,10 @@ Frame cadence in headless Edge varied substantially in the local run, even thoug
 
 | Entry              |  JS gzip | CSS gzip | Combined | CI ceiling |
 | ------------------ | -------: | -------: | -------: | ---------: |
-| `tip-glide/base`   | ~3.99 kB | ~0.68 kB | ~4.67 kB |    4,700 B |
-| `tip-glide`        | ~8.17 kB | ~0.70 kB | ~8.87 kB |    8,900 B |
-| `tip-glide/native` | ~3.72 kB | ~0.74 kB | ~4.45 kB |    4,500 B |
+| `tip-glide/base`   | ~4.03 kB | ~0.68 kB | ~4.71 kB |    4,800 B |
+| `tip-glide`        | ~8.21 kB | ~0.70 kB | ~8.91 kB |    9,000 B |
+| `tip-glide/native` | ~3.76 kB | ~0.74 kB | ~4.49 kB |    4,500 B |
+| `tip-glide/scope`  | ~8.56 kB | ~0.70 kB | ~9.26 kB |   10,000 B |
 
 The script reports exact current bytes. It also fails if the base bundle pulls in the full renderer, liquid contour, full options or JavaScript motion module. All three entries have zero runtime package dependencies. Playwright and esbuild are development dependencies only.
 
@@ -75,3 +76,9 @@ Native runtime work is the useful distinction: CSS owns placement and dimensions
 `npm run test:browser` runs real Chromium and WebKit at a touch-sized viewport, including a modal dialog/top-layer case, interrupted exits, viewport fallback, tap input, scrollable long text and removal cleanup. It asserts zero native-renderer geometry reads and scheduled frames. The CI browser job runs this separately from deterministic tests. These checks do not claim a physical iPhone frame rate.
 
 A real CDP touch gesture additionally guards scrolling in the top layer. Native scroll takeover emits `pointerleave`; the hover-close handler ignores that event for touch pointers so it does not dismiss the scrolling surface. A tooltip invoked from a modal dialog keeps its host inside that dialog's subtree, because a body sibling would remain inert even when painted in the top layer.
+
+## Application scopes, 0.5.0
+
+The new optional scope/provider entry shares one controller per document across independently mounted triggers. Removing the final trigger releases it. No animation loop or global application observer is added. Dynamic text uses a new core setContent method; it preserves the accessible description and retargets the existing renderer. This adds 36–41 combined gzip bytes versus 0.4.0: full 8,909, base 4,711 and native 4,492 bytes. Full/base ceilings increase to 9,000/4,800 bytes for that behavior; the 4,500-byte native ceiling is unchanged. Provider/scope code is not counted as part of these three entries and is absent from their bundles. Framework adapter costs additionally depend on which optional adapter and framework are imported.
+
+The standalone application-scope entry measures 9,261 bytes combined gzip (8,558 JS + 703 CSS), 352 bytes above full. This includes the complete geometric renderer once. Its 10,000-byte ceiling is checked separately. Provider adapters also use their installed framework's runtime. The size check verifies that scope code is absent from full/base/native entry bundles.
