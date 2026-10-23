@@ -5,6 +5,11 @@ import { resolve } from "node:path";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 
+// Angular consumers must not be older than the compiler used for a published library.
+const angular = await readFile(resolve(root, "dist/angular.js"), "utf8");
+if (!angular.includes('version: "20.0.0"'))
+  throw new Error("Build Angular partial declarations with the pinned Angular 20.0.0 compiler.");
+
 async function files(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const nested = await Promise.all(
