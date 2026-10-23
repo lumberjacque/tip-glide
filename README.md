@@ -550,7 +550,7 @@ export class Toolbar {
 }
 ```
 
-The directive starts after the browser renders. Bound options update automatically; destruction cancels pending setup and destroys the group. Supports Angular 21 and 22. `TipGlideGroupDirective` is available from 0.5.0. With published 0.3.x/0.4.x, use `TipGlideDirective` and an object-valued `[tipGlide]="options"` for this older group form.
+The directive starts after the browser renders. Bound options update automatically; destruction cancels pending setup and destroys the group. Supports Angular 20, 21 and 22. The adapter is compiled with Angular 20.0 partial compilation; CI checks the packed package with Angular 20.0 and the latest releases of each supported major, including strict AOT templates, SSR imports, reactive text and cleanup. `TipGlideGroupDirective` is available from 0.5.0. With published 0.3.x/0.4.x, use `TipGlideDirective` and an object-valued `[tipGlide]="options"` for this older group form.
 
 #### Solid
 
@@ -687,4 +687,4 @@ MIT. See [LICENSE](https://github.com/lumberjacque/tip-glide/blob/main/LICENSE).
 
 `npm run test:adapters` exercises real React, Vue, Angular, Solid and Preact lifecycles, a compiled Svelte component, Astro connection/reconnection, dynamic triggers and cleanup. `npm run check:install` builds an isolated consumer from the packed package, proves that a vanilla install brings in no framework, checks public types and SSR imports, compiles an Angular consumer with strict templates, and checks/builds a minimal Astro page. Run `npm run build` first.
 
-CI runs lifecycle tests on Node 22 and 24 on Windows and Linux. A separate packed-consumer job checks the distributable, including Angular and Astro. `npm run verify` runs all checks locally.
+CI runs lifecycle tests on Node 22 and 24 on Windows and Linux. A separate packed-consumer job checks the distributable, including Angular and Astro. The Node 24 Angular matrix runs `npm run check:angular` against Angular 20.0, latest 20, 21 and 22, checking strict AOT templates, SSR imports, shared configuration, local groups, signals, input bindings and cleanup. `npm run verify` runs all checks locally.

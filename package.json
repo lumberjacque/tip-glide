@@ -1,6 +1,6 @@
 {
   "name": "tip-glide",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "One shared tooltip, gliding between elements. Framework agnostic and dependency free.",
   "keywords": [
     "animation",
@@ -97,7 +97,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "size": "node scripts/size.mjs",
-    "verify": "npm run verify:core && npm run check:install",
+    "verify": "npm run verify:core && npm run check:install && npm run check:angular",
     "prepack": "npm run build && npm run check:package",
     "prepublishOnly": "npm run verify",
     "check:package": "node scripts/check-package.mjs",
@@ -106,14 +106,15 @@
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
     "test:adapters": "vitest run tests/adapters.test.ts tests/adapters-ssr.test.ts tests/adapters-extra.test.ts tests/scope.test.ts",
     "verify:core": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package",
-    "test:browser": "npm run build && node scripts/check-browser.mjs"
+    "test:browser": "npm run build && node scripts/check-browser.mjs",
+    "check:angular": "node scripts/check-angular.mjs"
   },
   "devDependencies": {
-    "@angular/common": "^21.2.25",
-    "@angular/compiler": "^21.2.25",
-    "@angular/compiler-cli": "^21.2.25",
-    "@angular/core": "^21.2.25",
-    "@angular/platform-browser": "^21.2.25",
+    "@angular/common": "20.0.0",
+    "@angular/compiler": "20.0.0",
+    "@angular/compiler-cli": "20.0.0",
+    "@angular/core": "20.0.0",
+    "@angular/platform-browser": "20.0.0",
     "@astrojs/check": "^0.9.10",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -128,12 +129,12 @@
     "react-dom": "^19.3.1",
     "solid-js": "^1.9.17",
     "svelte": "^5.57.2",
-    "typescript": "^5.9.3",
+    "typescript": "5.8.3",
     "vitest": "^4.0.0",
     "vue": "^3.5.44"
   },
   "peerDependencies": {
-    "@angular/core": ">=21 <23",
+    "@angular/core": ">=20 <23",
     "astro": ">=5 <8",
     "preact": ">=10 <12",
     "react": ">=18 <20",
