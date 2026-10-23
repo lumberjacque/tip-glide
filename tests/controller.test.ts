@@ -448,3 +448,13 @@ describe("touch and drag policy", () => {
     expect(visible()).toHaveLength(0);
   });
 });
+
+it("does not cancel a pending close when reactive content updates", () => {
+  const tips = group({ openDelay: 0, closeDelay: 120, motion: "reduced" });
+  hover(a);
+  leave(a);
+  tips.setContent(a, "Updated during close delay");
+  expect(visible()).toHaveLength(1);
+  vi.advanceTimersByTime(120);
+  expect(visible()).toHaveLength(0);
+});

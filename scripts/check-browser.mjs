@@ -104,6 +104,20 @@ for (const engine of [chromium, webkit]) {
         assert.equal(layout.reads, 0, "Native renderer read trigger layout");
         assert.equal(layout.frames, 0, "Native renderer scheduled animation work");
       }
+
+      const stableId = await page.locator("#a").getAttribute("aria-describedby");
+      await page.evaluate(() =>
+        tips.setContent(
+          a,
+          "Live text updates keep the tooltip visible and naturally resize the same surface.",
+        ),
+      );
+      await page.waitForTimeout(350);
+      assert.equal(await page.locator("#a").getAttribute("aria-describedby"), stableId);
+      assert(
+        (await page.locator(".tg-position[data-open]").textContent()).includes("Live text updates"),
+        `${entry}: live text update closed the tooltip`,
+      );
       // Rapid retargeting, natural size, retained arrow contour and interrupted exit.
       await page.evaluate(() => {
         tips.show(b);

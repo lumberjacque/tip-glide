@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, StrictMode, act } from "react";
 import { createRoot } from "react-dom/client";
 import { createApp, h, nextTick, ref, withDirectives } from "vue";
-import { TipGlide } from "../src/react.js";
-import { vTipGlide } from "../src/vue.js";
+import { TipGlide, TipGlideProvider, useTooltip } from "../src/react.js";
+import { vTipGlide, createTipGlidePlugin } from "../src/vue.js";
 import { tipGlide } from "../src/svelte.js";
 import { bindTipGlide } from "../src/adapters/binding.js";
 
@@ -23,6 +23,23 @@ const render = (text: string, key = "a", className = "one") =>
       TipGlide,
       { key, options: { className } },
       createElement("button", { "data-tip": text }, "Save"),
+    ),
+  );
+
+function ReactTextTrigger({ text }: { text: string }) {
+  const tipRef = useTooltip<HTMLButtonElement>(text);
+  return createElement("button", { ref: tipRef }, "Save");
+}
+
+const reactApp = (text: string) =>
+  createElement(
+    StrictMode,
+    null,
+    createElement(
+      TipGlideProvider,
+      { options: { className: "central" } },
+      createElement(ReactTextTrigger, { text }),
+      createElement(ReactTextTrigger, { text: "Other" }),
     ),
   );
 
@@ -162,5 +179,58 @@ describe("real framework lifecycles", () => {
     await flush();
     expect(descriptions()).toHaveLength(0);
     expect(document.querySelector(".tg-overlay")).toBeNull();
+  });
+});
+
+it("keeps a group trigger visible through attribute text updates, including Astro's binding", async () => {
+  const element = host();
+  element.innerHTML = '<button data-tip="First">Save</button>';
+  const button = element.firstElementChild as HTMLButtonElement;
+  vi.spyOn(button, "getBoundingClientRect").mockReturnValue(new DOMRect(100, 200, 40, 40));
+  vi.spyOn(button, "getClientRects").mockReturnValue([
+    new DOMRect(100, 200, 40, 40),
+  ] as unknown as DOMRectList);
+  const binding = bindTipGlide(element);
+  disposals.push(binding.destroy);
+  button.focus();
+  const token = button.getAttribute("aria-describedby");
+  button.dataset.tip = "Changed";
+  await flush();
+  expect(button.getAttribute("aria-describedby")).toBe(token);
+  expect(document.querySelector(".tg-position[data-open] .tg-content")?.textContent).toBe(
+    "Changed",
+  );
+});
+
+describe("central application providers", () => {
+  it("shares React triggers across components and survives StrictMode ref replay", async () => {
+    const root = createRoot(host());
+    disposals.push(() => act(() => root.unmount()));
+    await act(async () => root.render(reactApp("First")));
+    expect(document.querySelectorAll(".tg-overlay")).toHaveLength(1);
+    expect(descriptions().map((n) => n.textContent)).toEqual(["First", "Other"]);
+    await act(async () => root.render(reactApp("Changed")));
+    expect(descriptions().map((n) => n.textContent)).toEqual(["Changed", "Other"]);
+    expect(document.querySelectorAll(".tg-overlay")).toHaveLength(1);
+  });
+  it("globally configures Vue text directives and updates/disables individual triggers", async () => {
+    const text = ref<string | null>("First");
+    const app = createApp({
+      render: () =>
+        h("main", [
+          withDirectives(h("button", "Save"), [[vTipGlide, text.value]]),
+          withDirectives(h("button", "Other"), [[vTipGlide, "Other"]]),
+        ]),
+    });
+    app.use(createTipGlidePlugin({ className: "central" }));
+    app.mount(host());
+    disposals.push(() => app.unmount());
+    expect(document.querySelectorAll(".tg-overlay")).toHaveLength(1);
+    text.value = "Changed";
+    await nextTick();
+    expect(descriptions().map((n) => n.textContent)).toEqual(["Changed", "Other"]);
+    text.value = null;
+    await nextTick();
+    expect(descriptions().map((n) => n.textContent)).toEqual(["Other"]);
   });
 });

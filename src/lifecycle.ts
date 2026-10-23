@@ -381,6 +381,16 @@ export function createController<Input, Config extends ControllerOptions>(
 
   return {
     add,
+    setContent(trigger: HTMLElement, text: string) {
+      const entry = entries.get(trigger);
+      if (!entry) return;
+      if (!text.trim()) {
+        entry.cleanup();
+        return;
+      }
+      entry.description.textContent = text;
+      if (active === trigger) reposition();
+    },
     show: (trigger: HTMLElement) => open(trigger),
     hide() {
       hovered = undefined;

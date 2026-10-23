@@ -1,8 +1,12 @@
 import type { Action } from "svelte/action";
 import { bindTipGlide } from "./adapters/binding.js";
 import type { TipGlideAdapterOptions } from "./adapters/binding.js";
+import { getContext, setContext, onDestroy } from "svelte";
+import { createTipGlideScope } from "./scope.js";
+import type { TipGlideScope, TipGlideContent } from "./scope.js";
+import type { TipGlideOptions } from "./types.js";
 export type { TipGlideAdapterOptions } from "./adapters/binding.js";
-
+export type { TipGlideContent } from "./scope.js";
 /**
  * Svelte action for a group of `data-tip` triggers, including children added later.
  * @param node - The native group element, supplied by Svelte after mounting.
@@ -19,3 +23,35 @@ export type { TipGlideAdapterOptions } from "./adapters/binding.js";
  */
 export const tipGlide: Action<HTMLElement, TipGlideAdapterOptions | undefined> = (node, options) =>
   bindTipGlide(node, options);
+
+const SCOPE = Symbol("TipGlideScope");
+
+/**
+ * Provide central Svelte tooltip configuration during layout/root component initialization.
+ * @param options - Application defaults, including lean and warmDuration.
+ * @returns The scope, for optional central configure calls. Cleanup is owned by the component.
+ * @remarks Call during component initialization, once per application/provider. Imports and SSR are safe.
+ * @example `provideTipGlide({ lean: true, warmDuration: 800 });`
+ * @public
+ */
+export function provideTipGlide(options: TipGlideOptions = {}): TipGlideScope {
+  const scope = createTipGlideScope(options);
+  setContext(SCOPE, scope);
+  onDestroy(() => scope.destroy());
+  return scope;
+}
+
+/**
+ * Read the nearest provider and create a text-only tooltip action.
+ * @returns An action with automatic registration, reactive text updates and teardown.
+ * @throws When called without provideTipGlide in a parent component.
+ * @remarks Call once during component initialization. Use the returned action on any number of elements.
+ * @example `const tooltip = useTooltip();` then `<button use:tooltip={message}>Save</button>`.
+ * @public
+ */
+export function useTooltip(): Action<HTMLElement, TipGlideContent> {
+  const scope = getContext<TipGlideScope | undefined>(SCOPE);
+  if (!scope)
+    throw new Error("tip-glide: useTooltip requires provideTipGlide in a parent component.");
+  return (element, content) => scope.attach(element, content);
+}

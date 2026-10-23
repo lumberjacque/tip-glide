@@ -35,7 +35,7 @@ jobs:
         run: npm run verify:core
 
   framework-consumers:
-    name: Packed framework consumers
+    name: Node 24 / all seven framework adapters
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -47,6 +47,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Mount, update, unmount, central scopes and SSR for all adapters
+        run: npm run test:adapters
       - run: npm run build
       - name: Install packed adapters, check types, Angular AOT and Astro
         run: npm run check:install

@@ -72,6 +72,14 @@ export interface TipGlide {
    * @param trigger - The registered trigger to show. Unregistered triggers are ignored.
    */
   show(trigger: HTMLElement): void;
+  /**
+   * Update a registered trigger's plain-text description without closing its visible tooltip.
+   * Empty text unregisters the trigger; unknown triggers are ignored.
+   * @param trigger - A trigger registered with this group.
+   * @param text - The new plain-text description.
+   */
+  setContent(trigger: HTMLElement, text: string): void;
+
   /** Dismiss and cancel pending opening. Remains dismissed until a new hover, focus or explicit show. */
   hide(): void;
   /**
