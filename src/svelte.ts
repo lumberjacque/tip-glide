@@ -2,11 +2,16 @@ import type { Action } from "svelte/action";
 import { bindTipGlide } from "./adapters/binding.js";
 import type { TipGlideAdapterOptions } from "./adapters/binding.js";
 import { getContext, setContext, onDestroy } from "svelte";
-import { createTipGlideScope } from "./scope.js";
-import type { TipGlideScope, TipGlideContent } from "./scope.js";
+import { createRichTipGlideScope as createTipGlideScope } from "./rich.js";
+import type { TipGlideRichContent } from "./rich.js";
+import type { TipGlideContent } from "./scope.js";
+type TipGlideScope = ReturnType<typeof createTipGlideScope>;
+
 import type { TipGlideOptions } from "./types.js";
 export type { TipGlideAdapterOptions } from "./adapters/binding.js";
 export type { TipGlideContent } from "./scope.js";
+export { richContent } from "./rich.js";
+export type { TipGlideRichContent } from "./rich.js";
 /**
  * Svelte action for a group of `data-tip` triggers, including children added later.
  * @param node - The native group element, supplied by Svelte after mounting.
@@ -49,7 +54,7 @@ export function provideTipGlide(options: TipGlideOptions = {}): TipGlideScope {
  * @example `const tooltip = useTooltip();` then `<button use:tooltip={message}>Save</button>`.
  * @public
  */
-export function useTooltip(): Action<HTMLElement, TipGlideContent> {
+export function useTooltip(): Action<HTMLElement, TipGlideContent | TipGlideRichContent> {
   const scope = getContext<TipGlideScope | undefined>(SCOPE);
   if (!scope)
     throw new Error("tip-glide: useTooltip requires provideTipGlide in a parent component.");

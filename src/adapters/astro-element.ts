@@ -8,6 +8,34 @@ import type { TipGlideAdapterOptions } from "./binding.js";
  * @public
  */
 export function registerTipGlideElement() {
+  if (!customElements.get("tip-glide-tooltip")) {
+    class TooltipElement extends HTMLElement {
+      private restore: (() => void) | undefined;
+      connectedCallback() {
+        queueMicrotask(() => {
+          if (!this.isConnected || this.restore) return;
+          const trigger = this.querySelector<HTMLElement>("[data-tip-trigger]")?.firstElementChild;
+          const template = this.querySelector("template");
+          if (!(trigger instanceof HTMLElement) || !template) return;
+          const text = trigger.getAttribute("data-tip"),
+            id = trigger.getAttribute("data-tip-template");
+          trigger.setAttribute("data-tip", this.getAttribute("data-description") ?? "");
+          trigger.setAttribute("data-tip-template", template.id);
+          this.restore = () => {
+            if (text === null) trigger.removeAttribute("data-tip");
+            else trigger.setAttribute("data-tip", text);
+            if (id === null) trigger.removeAttribute("data-tip-template");
+            else trigger.setAttribute("data-tip-template", id);
+          };
+        });
+      }
+      disconnectedCallback() {
+        this.restore?.();
+        this.restore = undefined;
+      }
+    }
+    customElements.define("tip-glide-tooltip", TooltipElement);
+  }
   if (customElements.get("tip-glide-group")) return;
   class TipGlideElement extends HTMLElement {
     static observedAttributes = ["data-tip-glide-options"];

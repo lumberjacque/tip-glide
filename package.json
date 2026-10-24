@@ -27,7 +27,8 @@
     "PERFORMANCE.md",
     "LICENSE",
     "dist/*.astro",
-    "ARCHITECTURE.md"
+    "ARCHITECTURE.md",
+    "dist/*.svelte"
   ],
   "type": "module",
   "sideEffects": [
@@ -83,7 +84,13 @@
     "./scope": {
       "types": "./dist/scope.d.ts",
       "import": "./dist/scope.js"
-    }
+    },
+    "./rich": {
+      "types": "./dist/rich.d.ts",
+      "import": "./dist/rich.js"
+    },
+    "./svelte/Tooltip.svelte": "./dist/Tooltip.svelte",
+    "./astro/Tooltip.astro": "./dist/Tooltip.astro"
   },
   "publishConfig": {
     "access": "public",
@@ -138,6 +145,7 @@
     "astro": ">=5 <8",
     "preact": ">=10 <12",
     "react": ">=18 <20",
+    "react-dom": ">=18 <20",
     "solid-js": ">=1.9 <2",
     "svelte": ">=4 <6",
     "vue": ">=3.3 <4"
@@ -162,6 +170,9 @@
       "optional": true
     },
     "astro": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },

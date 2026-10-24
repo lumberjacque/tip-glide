@@ -5,15 +5,23 @@ import {
   onCleanup,
   onMount,
   useContext,
+  Show,
+  createSignal,
 } from "solid-js";
+import { Portal } from "solid-js/web";
 import type { Accessor, JSX as SolidJSX } from "solid-js";
 import { bindTipGlide } from "./adapters/binding.js";
 import type { TipGlideAdapterOptions } from "./adapters/binding.js";
-import { createTipGlideScope } from "./scope.js";
-import type { TipGlideScope, TipGlideContent, TipGlideTrigger } from "./scope.js";
+import { createRichTipGlideScope as createTipGlideScope, richContent } from "./rich.js";
+import type { TipGlideRichContent } from "./rich.js";
+import type { TipGlideContent } from "./scope.js";
+type TipGlideScope = ReturnType<typeof createTipGlideScope>;
+type TipGlideTrigger = ReturnType<TipGlideScope["attach"]>;
 import type { TipGlideOptions } from "./types.js";
 export type { TipGlideAdapterOptions } from "./adapters/binding.js";
 export type { TipGlideContent } from "./scope.js";
+export { richContent } from "./rich.js";
+export type { TipGlideRichContent } from "./rich.js";
 /**
  * Create a ref callback in a Solid component's owner. No consumer lifecycle hooks are needed.
  * @param options - Reactive accessor returning the full configuration. Omitted fields reset to defaults.
@@ -92,7 +100,10 @@ export function TipGlideProvider(props: TipGlideProviderProps): SolidJSX.Element
  * @throws When called outside TipGlideProvider.
  * @public
  */
-export function tooltip(element: HTMLElement, content: Accessor<TipGlideContent>): void {
+export function tooltip(
+  element: HTMLElement,
+  content: Accessor<TipGlideContent | TipGlideRichContent>,
+): void {
   const scope = useContext(ScopeContext);
   if (!scope) throw new Error("tip-glide: tooltip requires TipGlideProvider.");
   let binding: TipGlideTrigger | undefined;
@@ -106,7 +117,51 @@ export function tooltip(element: HTMLElement, content: Accessor<TipGlideContent>
 declare module "solid-js" {
   namespace JSX {
     interface Directives {
-      tooltip: TipGlideContent;
+      tooltip: TipGlideContent | TipGlideRichContent;
     }
   }
+}
+
+/** Props for reactive rich JSX; the trigger render function receives its ref. @public */
+export interface TooltipProps {
+  /** Equivalent nonempty plain-text accessible description. */
+  description: string;
+  /** Non-interactive JSX, kept under the original Solid owner. */
+  content: SolidJSX.Element;
+  /** Render the trigger, forwarding the supplied ref to a native element. */
+  children: (ref: (element: HTMLElement) => void) => SolidJSX.Element;
+}
+
+/**
+ * Render rich JSX lazily in the shared tooltip, preserving Solid context and reactive state.
+ * @param props - Accessible description, JSX content and trigger render function.
+ * @returns The trigger and an owner-preserving portal; SSR renders only the trigger.
+ * @remarks Requires TipGlideProvider. Content is inert. The portal is disposed after exit or unmount.
+ * @example `<Tooltip description="Pro plan" content={<strong>Pro</strong>}>{ref => <button ref={ref}>Plan</button>}</Tooltip>`
+ * @public
+ */
+export function Tooltip(props: TooltipProps): SolidJSX.Element {
+  const [target, setTarget] = createSignal<HTMLElement>();
+  const render = (host: HTMLElement) => {
+    setTarget(host);
+    return () => {
+      setTarget(undefined);
+    };
+  };
+  const ref = (element: HTMLElement) =>
+    tooltip(element, () => richContent(props.description, render));
+  const portal = Show({
+    get when() {
+      return target();
+    },
+    keyed: true,
+    children: (host: HTMLElement) =>
+      createComponent(Portal, {
+        mount: host,
+        get children() {
+          return props.content;
+        },
+      }),
+  });
+  return [props.children(ref), portal];
 }

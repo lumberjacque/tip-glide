@@ -10,3 +10,5 @@ await build({
 });
 
 await copyFile("src/astro.astro", "dist/astro.astro");
+await copyFile("src/Tooltip.astro", "dist/Tooltip.astro");
+await copyFile("src/Tooltip.svelte", "dist/Tooltip.svelte");

@@ -7,14 +7,25 @@ import {
   Input,
   InjectionToken,
   makeEnvironmentProviders,
+  TemplateRef,
+  ViewContainerRef,
 } from "@angular/core";
-import type { EnvironmentProviders } from "@angular/core";
-import { createTipGlideScope } from "./scope.js";
-import type { TipGlideScope, TipGlideContent, TipGlideTrigger } from "./scope.js";
+import type { EnvironmentProviders, EmbeddedViewRef, OnChanges } from "@angular/core";
+import {
+  createRichTipGlideScope as createTipGlideScope,
+  richContent,
+  isRichContent,
+} from "./rich.js";
+import type { TipGlideRichContent } from "./rich.js";
+import type { TipGlideContent } from "./scope.js";
+type TipGlideScope = ReturnType<typeof createTipGlideScope>;
+type TipGlideTrigger = ReturnType<TipGlideScope["attach"]>;
 import type { TipGlideOptions } from "./types.js";
 import { bindTipGlide } from "./adapters/binding.js";
 import type { TipGlideAdapterOptions } from "./adapters/binding.js";
 export type { TipGlideAdapterOptions } from "./adapters/binding.js";
+export { richContent } from "./rich.js";
+export type { TipGlideRichContent } from "./rich.js";
 function ownScope(options: TipGlideOptions = {}) {
   const scope = createTipGlideScope(options);
   inject(DestroyRef).onDestroy(() => scope.destroy());
@@ -46,33 +57,73 @@ export function provideTipGlide(options: TipGlideOptions = {}): EnvironmentProvi
  * @public
  */
 @Directive({ selector: "[tipGlide]", standalone: true })
-export class TipGlideDirective {
+export class TipGlideDirective implements OnChanges {
   private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly scope = inject(SCOPE);
+  private readonly container = inject(ViewContainerRef);
   private binding: TipGlideTrigger | ReturnType<typeof bindTipGlide> | undefined;
-  private value: TipGlideContent | TipGlideAdapterOptions;
+  private value:
+    | TipGlideContent
+    | TipGlideRichContent
+    | TipGlideAdapterOptions
+    | TemplateRef<object>;
+  private template: TemplateRef<object> | undefined;
+  private embedded: EmbeddedViewRef<object> | undefined;
+  private renderTemplate: TipGlideRichContent["render"] | undefined;
   private mounted = false;
   private group = false;
 
   /** Reactive plain text; null/empty/false disables it. Object values retain legacy group configuration. */
   @Input()
-  set tipGlide(value: TipGlideContent | TipGlideAdapterOptions) {
+  set tipGlide(
+    value: TipGlideContent | TipGlideRichContent | TipGlideAdapterOptions | TemplateRef<object>,
+  ) {
     this.value = value;
+  }
+  /** Required plain-text equivalent when tipGlide receives a TemplateRef. */
+  @Input() tipGlideDescription = "";
+  /** Reactive context for the embedded template, including $implicit and named let bindings. */
+  @Input() tipGlideContext: object = {};
+  /** Batch Angular's input changes before creating or updating tooltip content. */
+  ngOnChanges() {
     if (this.mounted) this.apply();
   }
   private apply() {
-    const group = typeof this.value === "object" && this.value !== null;
+    let value = this.value;
+    if (value instanceof TemplateRef) {
+      if (this.template !== value) {
+        const template = value;
+        this.template = template;
+        this.renderTemplate = (host) => {
+          const view = this.container.createEmbeddedView(template, this.tipGlideContext);
+          this.embedded = view;
+          view.detectChanges();
+          host.append(...view.rootNodes);
+          return () => {
+            if (this.embedded === view) this.embedded = undefined;
+            view.destroy();
+          };
+        };
+      }
+      value = richContent(this.tipGlideDescription, this.renderTemplate!);
+    }
+    const group = typeof value === "object" && value !== null && !isRichContent(value);
     if (!this.binding || group !== this.group) {
       this.binding?.destroy();
       this.binding = group
-        ? bindTipGlide(this.element.nativeElement, this.value as TipGlideAdapterOptions)
-        : this.scope.attach(this.element.nativeElement, this.value as TipGlideContent);
+        ? bindTipGlide(this.element.nativeElement, value as TipGlideAdapterOptions)
+        : this.scope.attach(
+            this.element.nativeElement,
+            value as TipGlideContent | TipGlideRichContent,
+          );
       this.group = group;
     } else if (group)
-      (this.binding as ReturnType<typeof bindTipGlide>).update(
-        this.value as TipGlideAdapterOptions,
-      );
-    else (this.binding as TipGlideTrigger).update(this.value as TipGlideContent);
+      (this.binding as ReturnType<typeof bindTipGlide>).update(value as TipGlideAdapterOptions);
+    else (this.binding as TipGlideTrigger).update(value as TipGlideContent | TipGlideRichContent);
+    if (this.embedded) {
+      this.embedded.context = this.tipGlideContext;
+      this.embedded.detectChanges();
+    }
   }
   /** Own post-render setup and cancel it if the directive is destroyed first. */
   constructor() {

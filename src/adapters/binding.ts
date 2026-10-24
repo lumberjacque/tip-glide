@@ -1,4 +1,4 @@
-import { createTipGlide } from "../controller.js";
+import { createRichTipGlide, richContent } from "../rich.js";
 import { resolveOptions } from "../options.js";
 import type { TipGlideOptions } from "../types.js";
 
@@ -25,8 +25,11 @@ export function bindTipGlide(root: HTMLElement, input: TipGlideAdapterOptions = 
     };
   };
   let config = normalize(input);
-  const controller = createTipGlide(root, config.options);
-  const entries = new Map<HTMLElement, { text: string; remove: () => void }>();
+  const controller = createRichTipGlide(root, config.options);
+  const entries = new Map<
+    HTMLElement,
+    { text: string; template: Element | null; remove: () => void }
+  >();
   let destroyed = false,
     pinned: HTMLElement | undefined;
   const reconcile = () => {
@@ -42,12 +45,25 @@ export function bindTipGlide(root: HTMLElement, input: TipGlideAdapterOptions = 
     }
     for (const trigger of triggers) {
       const text = trigger.getAttribute("data-tip") ?? "";
-      if (!text.trim() || entries.get(trigger)?.text === text) continue;
+      const id = trigger.getAttribute("data-tip-template");
+      const template = id ? root.ownerDocument.getElementById(id) : null;
+      const old = entries.get(trigger);
+      if (!text.trim() || (old?.text === text && old.template === template)) continue;
+      if (id && (!template || template.tagName !== "TEMPLATE"))
+        throw new TypeError(
+          "tip-glide: data-tip-template must reference a same-document template.",
+        );
+      const content = template
+        ? richContent(text, (host) => {
+            host.append((template as HTMLTemplateElement).content.cloneNode(true));
+          })
+        : text;
       const entry = entries.get(trigger);
       if (entry) {
-        controller.setContent(trigger, text);
+        controller.setContent(trigger, content);
         entry.text = text;
-      } else entries.set(trigger, { text, remove: controller.add(trigger, text) });
+        entry.template = template;
+      } else entries.set(trigger, { text, template, remove: controller.add(trigger, content) });
       if (pinned === trigger) pinned = undefined;
     }
     const first = Array.from(triggers).find((trigger) => entries.has(trigger));
@@ -63,7 +79,7 @@ export function bindTipGlide(root: HTMLElement, input: TipGlideAdapterOptions = 
     childList: true,
     subtree: true,
     attributes: true,
-    attributeFilter: ["data-tip"],
+    attributeFilter: ["data-tip", "data-tip-template"],
   });
   return {
     update(next: TipGlideAdapterOptions = {}) {

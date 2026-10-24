@@ -6,17 +6,20 @@ import type { TipGlide, TipGlideOptions } from "./types.js";
 export type TipGlideContent = string | null | undefined | false;
 
 /** A trigger's ownership within its application scope. @public */
-export interface TipGlideTrigger {
+export interface TipGlideTrigger<Content = string> {
   /** Replace reactive text; empty content disables the tooltip without removing the element. */
-  update(content: TipGlideContent): void;
+  update(content: Content | null | undefined | false): void;
   /** Unregister this trigger. Repeated cleanup is harmless. */
   destroy(): void;
 }
 
 /** Central configuration and one shared tooltip per document while triggers are registered. @public */
-export interface TipGlideScope {
+export interface TipGlideScope<Content = string> {
   /** Attach an element after mount. Import the full stylesheet once in the application. */
-  attach(element: HTMLElement, content: TipGlideContent): TipGlideTrigger;
+  attach(
+    element: HTMLElement,
+    content: Content | null | undefined | false,
+  ): TipGlideTrigger<Content>;
   /** Replace the central configuration. Omitted fields reset to core defaults; invalid values throw. */
   configure(options?: TipGlideOptions): void;
   /** Release all current bindings and resources. A later attachment starts a fresh group. */
@@ -42,9 +45,28 @@ export interface TipGlideScope {
  * @public
  */
 export function createTipGlideScope(options: TipGlideOptions = {}): TipGlideScope {
+  return createScope(options, createTipGlide, (content) => {
+    if (typeof content !== "string")
+      throw new TypeError("tip-glide: tooltip content must be plain text.");
+    return content;
+  });
+}
+
+/** Internal scope ownership, reused without importing rich rendering in the text entry. */
+export function createScope<Content>(
+  options: TipGlideOptions,
+  factory: (
+    root: HTMLElement,
+    options: TipGlideOptions,
+  ) => Pick<TipGlide, "update" | "destroy"> & {
+    add(element: HTMLElement, content: Content): () => void;
+    setContent(element: HTMLElement, content: Content): void;
+  },
+  description: (content: Content) => string,
+): TipGlideScope<Content> {
   let config = resolveOptions(options);
-  const groups = new Map<Document, { tips: TipGlide; count: number }>();
-  const bindings = new Set<TipGlideTrigger>();
+  const groups = new Map<Document, { tips: ReturnType<typeof factory>; count: number }>();
+  const bindings = new Set<TipGlideTrigger<Content>>();
   return {
     configure(next = {}) {
       const resolved = resolveOptions(next);
@@ -63,10 +85,10 @@ export function createTipGlideScope(options: TipGlideOptions = {}): TipGlideScop
       config = resolved;
     },
     attach(element, initial) {
-      let group: { tips: TipGlide; count: number } | undefined;
+      let group: { tips: ReturnType<typeof factory>; count: number } | undefined;
       let unregister: (() => void) | undefined;
-      let text = "",
-        destroyed = false;
+      let previous: Content | null | undefined | false;
+      let destroyed = false;
       function release() {
         unregister?.();
         unregister = undefined;
@@ -76,34 +98,28 @@ export function createTipGlideScope(options: TipGlideOptions = {}): TipGlideScop
         }
         group = undefined;
       }
-      const binding: TipGlideTrigger = {
+      const binding: TipGlideTrigger<Content> = {
         update(content) {
           if (destroyed) return;
-          if (
-            content !== null &&
-            content !== undefined &&
-            content !== false &&
-            typeof content !== "string"
-          )
-            throw new TypeError("tip-glide: tooltip content must be plain text.");
-          const next = content || "";
-          if (next === text) return;
-          if (!next.trim()) {
+          const empty = content === null || content === undefined || content === false;
+          const text = empty ? "" : description(content as Content);
+          if (content === previous) return;
+          if (!text.trim()) {
             release();
-            text = next;
+            previous = content;
             return;
           }
           if (!group) {
             const doc = element.ownerDocument;
             group = groups.get(doc);
             if (!group) {
-              group = { tips: createTipGlide(doc.createElement("div"), config), count: 0 };
+              group = { tips: factory(doc.createElement("div"), config), count: 0 };
               groups.set(doc, group);
             }
-            unregister = group.tips.add(element, next);
+            unregister = group.tips.add(element, content as Content);
             group.count++;
-          } else group.tips.setContent(element, next);
-          text = next;
+          } else group.tips.setContent(element, content as Content);
+          previous = content;
         },
         destroy() {
           if (destroyed) return;

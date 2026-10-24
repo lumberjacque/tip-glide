@@ -5,6 +5,7 @@ import { createPathSampler, easeOut } from "./motion.js";
 import { skin } from "./skin.js";
 import type { Options } from "./options.js";
 import type { TipTransition } from "./types.js";
+import type { ContentPresentation } from "./view-contract.js";
 
 const out = "cubic-bezier(0.23, 1, 0.32, 1)";
 const cancel = (node: HTMLElement) =>
@@ -16,7 +17,7 @@ function animate(node: HTMLElement, frames: Keyframe[], duration: number, easing
   return animation;
 }
 
-export function createView(doc: Document, win: Window) {
+export function createView(doc: Document, win: Window, rich?: ContentPresentation) {
   const div = (name: string) => {
     const node = doc.createElement("div");
     node.className = name;
@@ -43,6 +44,7 @@ export function createView(doc: Document, win: Window) {
   let state = { x: 0, y: 0, width: 0, height: 0 };
   let visible = false,
     lastTrigger: HTMLElement | undefined;
+  let richActive = false;
   let anchor: Rect = { x: 0, y: 0, width: 0, height: 0 };
   let boundary: Rect = { x: 0, y: 0, width: 0, height: 0 };
   let config: Options | undefined;
@@ -144,12 +146,15 @@ export function createView(doc: Document, win: Window) {
       node.style.maxWidth = `min(var(--tg-max-width), ${width}px)`;
       node.style.maxHeight = `min(var(--tg-max-height), ${height}px)`;
     }
-    measurement.textContent = text;
+    richActive = rich?.present(trigger, content) ?? false;
+    const measuring = richActive ? content : measurement;
+    if (richActive) content.style.width = "max-content";
+    else measurement.textContent = text;
     // offsetWidth rounds down at half pixels, which can wrap a final word onto an unmeasured line.
-    const measured = measurement.getBoundingClientRect();
+    const measured = measuring.getBoundingClientRect();
     const size = {
-      width: Math.ceil(measured.width || measurement.offsetWidth),
-      height: Math.ceil(measured.height || measurement.offsetHeight),
+      width: Math.ceil(measured.width || measuring.offsetWidth),
+      height: Math.ceil(measured.height || measuring.offsetHeight),
     };
     const rect = trigger.getBoundingClientRect();
     return {
@@ -161,8 +166,8 @@ export function createView(doc: Document, win: Window) {
         rect.y,
         rect.width,
         rect.height,
-        measurement.offsetWidth,
-        measurement.offsetHeight,
+        measuring.offsetWidth,
+        measuring.offsetHeight,
         ...(options.boundary ? Object.values(bounds) : []),
       ].join(","),
       next: place(rect, size, bounds, options.placement, options.gap, options.viewportPadding),
@@ -228,10 +233,10 @@ export function createView(doc: Document, win: Window) {
     if (contour) contour.svg.style.display = options.arrow ? "" : "none";
     if (options.arrow)
       radius = parseFloat(win.getComputedStyle(backdrop).borderTopLeftRadius) || 12;
-    content.style.width = `${size.width}px`;
-    if (contentChanged || content.textContent !== text) {
+    if (!richActive) content.style.width = `${size.width}px`;
+    if (contentChanged || (!richActive && content.textContent !== text)) {
       cancel(content);
-      content.textContent = text;
+      if (!richActive) content.textContent = text;
       content.scrollTop = 0;
       pendingText = visible && !instant && options.duration ? size : undefined;
       content.style.opacity = pendingText ? "0" : "1";
@@ -315,18 +320,23 @@ export function createView(doc: Document, win: Window) {
         if (exitAnimation !== current) return;
         position.removeAttribute("data-open");
         host.conceal();
+        rich?.clear();
         exitAnimation = undefined;
       };
     } else {
       position.removeAttribute("data-open");
       host.conceal();
+      rich?.clear();
     }
   }
   function stopFuse() {
     fuseAnimation?.cancel();
     fuseAnimation = undefined;
     fuse.hidden = true;
-    if (!visible && !exitAnimation) host.conceal();
+    if (!visible && !exitAnimation) {
+      host.conceal();
+      rich?.clear();
+    }
   }
   function startFuse(
     trigger: HTMLElement,
@@ -361,9 +371,14 @@ export function createView(doc: Document, win: Window) {
   }
   return {
     baseClass: overlay.className,
+    get animatedContent() {
+      return richActive;
+    },
     overlay,
     position,
-    measurement,
+    get measurement() {
+      return richActive ? content : measurement;
+    },
     bounds: (options: Options) => getBoundary(win, options.boundary),
     render,
     hide,
@@ -371,6 +386,7 @@ export function createView(doc: Document, win: Window) {
     stopFuse,
     destroy() {
       stopTravel();
+      rich?.clear();
       overlay.getAnimations?.({ subtree: true }).forEach((animation) => animation.cancel());
       host.destroy();
     },
