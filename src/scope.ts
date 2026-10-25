@@ -7,7 +7,7 @@ export type TipGlideContent = string | null | undefined | false;
 
 /** A trigger's ownership within its application scope. @public */
 export interface TipGlideTrigger<Content = string> {
-  /** Replace reactive text; empty content disables the tooltip without removing the element. */
+  /** Replace reactive content; empty text/null/false disables the tooltip without removing the element. */
   update(content: Content | null | undefined | false): void;
   /** Unregister this trigger. Repeated cleanup is harmless. */
   destroy(): void;

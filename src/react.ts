@@ -105,8 +105,8 @@ export function TipGlideProvider({ options = {}, children }: TipGlideProviderPro
 }
 
 /**
- * Attach reactive tooltip text to an existing element within TipGlideProvider.
- * @param content - Plain text; empty/null/false disables the tooltip.
+ * Attach reactive tooltip content to an existing element within TipGlideProvider.
+ * @param content - Plain text or richContent; empty/null/false disables the tooltip.
  * @returns A stable element ref, with automatic registration, live text updates and cleanup.
  * @throws When used outside a provider, or content/options are invalid.
  * @remarks Call unconditionally at component top level; pass null to disable. No per-trigger group

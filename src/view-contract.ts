@@ -40,7 +40,7 @@ export interface ControllerView<Config> {
     options: Config,
     reduced: boolean,
   ): void;
-  stopFuse(): void;
+  stopFuse(preserveContent?: boolean): void;
   destroy(): void;
 }
 

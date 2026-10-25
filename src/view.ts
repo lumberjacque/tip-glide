@@ -329,13 +329,13 @@ export function createView(doc: Document, win: Window, rich?: ContentPresentatio
       rich?.clear();
     }
   }
-  function stopFuse() {
+  function stopFuse(preserveContent = false) {
     fuseAnimation?.cancel();
     fuseAnimation = undefined;
     fuse.hidden = true;
     if (!visible && !exitAnimation) {
       host.conceal();
-      rich?.clear();
+      if (!preserveContent) rich?.clear();
     }
   }
   function startFuse(

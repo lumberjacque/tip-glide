@@ -134,6 +134,7 @@ export const Tooltip = defineComponent({
     if (!scope) throw new Error("tip-glide: Tooltip requires createTipGlidePlugin.");
     const target = shallowRef<HTMLElement | null>(null);
     let binding: TipGlideTrigger | undefined;
+    let trigger: unknown;
     const render = (host: HTMLElement) => {
       target.value = host;
       return () => {
@@ -142,6 +143,8 @@ export const Tooltip = defineComponent({
     };
     const value = () => richContent(props.description, render);
     const ref = (element: unknown) => {
+      if (trigger === element) return;
+      trigger = element;
       binding?.destroy();
       binding = element ? scope.attach(element as HTMLElement, value()) : undefined;
     };

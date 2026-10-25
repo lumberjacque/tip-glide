@@ -77,11 +77,11 @@ export function createController<Input, Config extends ControllerOptions>(
     removers.push(() => target.removeEventListener(type, handler, capture));
   }
 
-  function cancelOpen() {
+  function cancelOpen(preserveContent = false) {
     win!.clearTimeout(openTimer);
     openTimer = undefined;
     pending = undefined;
-    view.stopFuse();
+    view.stopFuse(preserveContent);
   }
 
   function cancelClose() {
@@ -118,7 +118,7 @@ export function createController<Input, Config extends ControllerOptions>(
       dismiss(true);
       return;
     }
-    cancelOpen();
+    cancelOpen(true);
     cancelClose();
     const changed = active !== trigger;
     active = trigger;

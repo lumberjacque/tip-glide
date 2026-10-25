@@ -2,18 +2,19 @@
   import type { Action } from 'svelte/action';
   import { useTooltip } from './svelte.js';
   import { richContent } from './rich.js';
+  import type { RichTooltipContent } from './rich.js';
 
   /** Required plain-text equivalent of the non-interactive default slot. */
   export let description: string;
   const attach = useTooltip();
   let target: HTMLElement | undefined;
-  let update: ReturnType<typeof attach> | undefined;
+  let update: { update?: (value: RichTooltipContent) => void; destroy?: () => void } | undefined;
   const render = (host: HTMLElement) => {
     target = host;
     return () => { target = undefined; };
   };
   const tooltip: Action<HTMLElement> = (element) => {
-    update = attach(element, richContent(description, render));
+    update = attach(element, richContent(description, render)) || undefined;
     return { destroy() { update?.destroy?.(); update = undefined; } };
   };
   $: update?.update?.(richContent(description, render));

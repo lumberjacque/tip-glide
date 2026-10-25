@@ -47,7 +47,7 @@ export function provideTipGlide(options: TipGlideOptions = {}): TipGlideScope {
 }
 
 /**
- * Read the nearest provider and create a text-only tooltip action.
+ * Read the nearest provider and create a text or richContent tooltip action.
  * @returns An action with automatic registration, reactive text updates and teardown.
  * @throws When called without provideTipGlide in a parent component.
  * @remarks Call once during component initialization. Use the returned action on any number of elements.

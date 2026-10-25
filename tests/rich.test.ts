@@ -15,6 +15,7 @@ afterEach(() => {
   while (disposals.length) disposals.pop()!();
   document.body.replaceChildren();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 function button() {
   const node = document.createElement("button");
@@ -28,6 +29,32 @@ const focus = (node: HTMLElement) =>
   node.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 
 describe("rich content ownership", () => {
+  it("keeps a fuse preview mounted when its opening delay completes, and cleans up cancelled previews", () => {
+    vi.useFakeTimers();
+    vi.mocked(window.matchMedia).mockImplementation(
+      (media) => Object.assign(new EventTarget(), { matches: true, media }) as MediaQueryList,
+    );
+    const trigger = button(),
+      mount = vi.fn((host: HTMLElement) => {
+        host.textContent = "Badge";
+        return cleanup;
+      });
+    const cleanup = vi.fn();
+    const tips = createRichTipGlide(document, { showFuse: true, openDelay: 400 });
+    disposals.push(() => tips.destroy());
+    tips.add(trigger, richContent("Pro plan", mount));
+    trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }));
+    expect(mount).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(400);
+    expect(mount).toHaveBeenCalledTimes(1);
+    expect(cleanup).not.toHaveBeenCalled();
+    tips.hide();
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    tips.update({ warmDuration: 0 });
+    trigger.dispatchEvent(new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }));
+    trigger.dispatchEvent(new PointerEvent("pointerout", { bubbles: true, pointerType: "mouse" }));
+    expect(cleanup).toHaveBeenCalledTimes(2);
+  });
   it("mounts one real DOM tree lazily, preserves description IDs and cleans up exactly once", () => {
     const trigger = button();
     const tips = createRichTipGlide(document, { arrow: true });

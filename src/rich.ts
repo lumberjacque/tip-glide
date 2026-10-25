@@ -32,7 +32,7 @@ export type RichTooltipContent = string | TipGlideRichContent | null | undefined
  */
 export function richContent(
   description: string,
-  source: HTMLElement | TipGlideRichContent["render"],
+  source: Element | TipGlideRichContent["render"],
 ): TipGlideRichContent {
   if (typeof description !== "string" || !description.trim())
     throw new TypeError("tip-glide: rich content requires a nonempty plain-text description.");

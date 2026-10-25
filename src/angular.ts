@@ -49,9 +49,9 @@ export function provideTipGlide(options: TipGlideOptions = {}): EnvironmentProvi
 }
 
 /**
- * Angular trigger directive: `tipGlide="Save"` or `[tipGlide]="dynamicText"`.
- * @remarks Text bindings share the application's provideTipGlide configuration and visual surface.
- * Empty/null/false disables the trigger. Object input retains the legacy data-tip group adapter;
+ * Angular trigger directive for text, richContent or a TemplateRef with context and description.
+ * @remarks Bindings share the application's provideTipGlide configuration and visual surface.
+ * Empty/null/false disables the trigger. Options objects retain the legacy data-tip group adapter;
  * use tipGlideGroup for new group integrations. Browser setup runs after render; cleanup is automatic.
  * @example `<button [tipGlide]="message">Save</button>`
  * @public
@@ -73,7 +73,7 @@ export class TipGlideDirective implements OnChanges {
   private mounted = false;
   private group = false;
 
-  /** Reactive plain text; null/empty/false disables it. Object values retain legacy group configuration. */
+  /** Reactive text, richContent or TemplateRef; null/empty/false disables it. Options retain legacy groups. */
   @Input()
   set tipGlide(
     value: TipGlideContent | TipGlideRichContent | TipGlideAdapterOptions | TemplateRef<object>,
@@ -95,7 +95,14 @@ export class TipGlideDirective implements OnChanges {
         const template = value;
         this.template = template;
         this.renderTemplate = (host) => {
-          const view = this.container.createEmbeddedView(template, this.tipGlideContext);
+          const context = new Proxy(
+            {},
+            {
+              get: (_target, key) => Reflect.get(this.tipGlideContext, key),
+              has: (_target, key) => key in this.tipGlideContext,
+            },
+          );
+          const view = this.container.createEmbeddedView(template, context);
           this.embedded = view;
           view.detectChanges();
           host.append(...view.rootNodes);
@@ -121,7 +128,6 @@ export class TipGlideDirective implements OnChanges {
       (this.binding as ReturnType<typeof bindTipGlide>).update(value as TipGlideAdapterOptions);
     else (this.binding as TipGlideTrigger).update(value as TipGlideContent | TipGlideRichContent);
     if (this.embedded) {
-      this.embedded.context = this.tipGlideContext;
       this.embedded.detectChanges();
     }
   }

@@ -95,7 +95,7 @@ export function TipGlideProvider(props: TipGlideProviderProps): SolidJSX.Element
 /**
  * Solid tooltip directive used as `use:tooltip={message()}` inside TipGlideProvider.
  * @param element - Trigger element supplied by Solid.
- * @param content - Reactive plain-text accessor; empty/null/false disables the tooltip.
+ * @param content - Reactive text/richContent accessor; empty/null/false disables the tooltip.
  * @remarks Mount, text changes and owner cleanup are automatic. No per-trigger group is created.
  * @throws When called outside TipGlideProvider.
  * @public

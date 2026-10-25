@@ -52,6 +52,8 @@ jobs:
       - run: npm run build
       - name: Install packed adapters, check types, Angular AOT and Astro
         run: npm run check:install
+      - name: Packed Svelte 4 and 5 component types and lifecycles
+        run: npm run check:svelte
 
   angular-consumers:
     name: Node 24 / Angular ${{ matrix.angular }} packed consumer

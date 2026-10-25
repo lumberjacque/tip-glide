@@ -25,10 +25,11 @@ Frame cadence in headless Edge varied substantially in the local run, even thoug
 
 | Entry              |  JS gzip | CSS gzip | Combined | CI ceiling |
 | ------------------ | -------: | -------: | -------: | ---------: |
-| `tip-glide/base`   | ~4.03 kB | ~0.68 kB | ~4.71 kB |    4,800 B |
-| `tip-glide`        | ~8.21 kB | ~0.70 kB | ~8.91 kB |    9,000 B |
-| `tip-glide/native` | ~3.76 kB | ~0.74 kB | ~4.49 kB |    4,500 B |
-| `tip-glide/scope`  | ~8.56 kB | ~0.70 kB | ~9.26 kB |   10,000 B |
+| `tip-glide/base`   | ~4.05 kB | ~0.68 kB | ~4.73 kB |    4,800 B |
+| `tip-glide`        | ~8.33 kB | ~0.70 kB | ~9.03 kB |    9,200 B |
+| `tip-glide/native` | ~3.78 kB | ~0.74 kB | ~4.51 kB |    4,600 B |
+| `tip-glide/scope`  | ~8.71 kB | ~0.70 kB | ~9.42 kB |   10,000 B |
+| `tip-glide/rich`   | ~9.28 kB | ~0.70 kB | ~9.98 kB |   12,000 B |
 
 The script reports exact current bytes. It also fails if the base bundle pulls in the full renderer, liquid contour, full options or JavaScript motion module. All three entries have zero runtime package dependencies. Playwright and esbuild are development dependencies only.
 
@@ -82,3 +83,9 @@ A real CDP touch gesture additionally guards scrolling in the top layer. Native 
 The new optional scope/provider entry shares one controller per document across independently mounted triggers. Removing the final trigger releases it. No animation loop or global application observer is added. Dynamic text uses a new core setContent method; it preserves the accessible description and retargets the existing renderer. This adds 36–41 combined gzip bytes versus 0.4.0: full 8,909, base 4,711 and native 4,492 bytes. Full/base ceilings increase to 9,000/4,800 bytes for that behavior; the 4,500-byte native ceiling is unchanged. Provider/scope code is not counted as part of these three entries and is absent from their bundles. Framework adapter costs additionally depend on which optional adapter and framework are imported.
 
 The standalone application-scope entry measures 9,261 bytes combined gzip (8,558 JS + 703 CSS), 352 bytes above full. This includes the complete geometric renderer once. Its 10,000-byte ceiling is checked separately. Provider adapters also use their installed framework's runtime. The size check verifies that scope code is absent from full/base/native entry bundles.
+
+## Rich content branch
+
+The optional rich entry measures 9,979 combined gzip bytes (9,276 JavaScript + 703 CSS) before framework code. Full measures 9,033 bytes, text scope 9,417, base 4,727 and native 4,510. Against 0.5.1, the full rendering seam adds 124 bytes, base/native add 16/18 bytes from shared resize and fuse dispatch, and the text scope adds 156. Full/native ceilings are revised to 9,200/4,600 bytes; this is a small compatibility cost, not a size optimization. Rich rendering has its own 12,000-byte ceiling. The bundle check rejects rich-module imports in every plain entry.
+
+Browser rich-content checks exercise intrinsic growth and shrinkage, viewport constraints, the connected contour, interrupted exits, rapid handoffs, touch scrolling, reduced motion and absence of idle animation work. Framework tests cover owner/context preservation and cleanup; packed consumers check Angular 20-22, Svelte 4/5 and Astro slot compilation. These checks do not establish a physical iPhone frame rate.

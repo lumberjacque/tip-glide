@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 
 // Real layout, top layer and touch; no website or screenshots required.
 const assets = {};
-for (const entry of ["index", "base", "native"]) {
+for (const entry of ["index", "base", "native", "rich"]) {
   assets[entry] = {
     js: (
       await build({
@@ -16,7 +16,10 @@ for (const entry of ["index", "base", "native"]) {
         write: false,
       })
     ).outputFiles[0].text,
-    css: await readFile(`dist/${entry === "index" ? "style" : entry}.css`, "utf8"),
+    css: await readFile(
+      `dist/${entry === "index" || entry === "rich" ? "style" : entry}.css`,
+      "utf8",
+    ),
   };
 }
 for (const engine of [chromium, webkit]) {
@@ -226,6 +229,173 @@ for (const engine of [chromium, webkit]) {
       );
       await page.close();
     }
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
+    const errors = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.setContent(`<!doctype html><style>
+      body{margin:0;font:16px system-ui} button{position:absolute;top:300px;left:120px;width:80px;height:40px}
+      #b{top:500px;left:260px} ${assets.rich.css}
+      .tg-overlay{--tg-max-width:260px;--tg-max-height:180px}
+    </style><button id="a">Plan</button><button id="b">Other</button><script>${assets.rich.js}</script>`);
+    await page.evaluate(() => {
+      window.mounts = 0;
+      window.cleanups = 0;
+      window.frames = 0;
+      const request = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (callback) => {
+        window.frames++;
+        return request(callback);
+      };
+      window.a = document.querySelector("#a");
+      window.b = document.querySelector("#b");
+      window.tips = TG.createRichTipGlide(document, {
+        arrow: true,
+        lean: true,
+        touch: "tap",
+        openDelay: 0,
+        duration: 180,
+      });
+      tips.add(
+        a,
+        TG.richContent("Pro plan", (host) => {
+          mounts++;
+          const badge = document.createElement("strong");
+          badge.id = "badge";
+          badge.textContent = "Pro";
+          badge.style.color = "rebeccapurple";
+          host.append(badge);
+          return () => {
+            cleanups++;
+          };
+        }),
+      );
+      tips.add(b, "A plain description that wraps across several lines.");
+      tips.show(a);
+    });
+    await page.waitForTimeout(300);
+    const first = await page.locator(".tg-position").boundingBox();
+    const description = await page.locator("#a").getAttribute("aria-describedby");
+    assert(
+      first.width > 40 && first.height > 20,
+      `${engine.name()}: rich content was not measured`,
+    );
+    assert.equal(
+      await page.locator("#badge").count(),
+      1,
+      "Rich content was cloned for measurement",
+    );
+    await page.evaluate(() => {
+      document.querySelector("#badge").textContent =
+        "A much longer live badge with emphasized words that now wraps over several lines.";
+    });
+    await page.waitForTimeout(450);
+    const expanded = await page.locator(".tg-position").boundingBox();
+    assert(
+      expanded.width > first.width && expanded.height > first.height,
+      "Reactive rich dimensions were not observed",
+    );
+    assert(
+      expanded.x >= 0 &&
+        expanded.y >= 0 &&
+        expanded.x + expanded.width <= 390 &&
+        expanded.y + expanded.height <= 844,
+      "Rich tooltip escaped viewport",
+    );
+    assert.equal(await page.locator("#a").getAttribute("aria-describedby"), description);
+    assert(
+      !(await page.locator(".tg-skin path").getAttribute("d")).includes("NaN"),
+      "Liquid pointer contains invalid geometry",
+    );
+    await page.evaluate(() => {
+      document.querySelector("#badge").textContent = "Pro";
+    });
+    await page.waitForTimeout(450);
+    const shrunk = await page.locator(".tg-position").boundingBox();
+    assert(
+      shrunk.width < expanded.width && shrunk.height < expanded.height,
+      "Rich tooltip did not shrink naturally",
+    );
+    const frames = await page.evaluate(() => window.frames);
+    await page.waitForTimeout(160);
+    assert.equal(
+      await page.evaluate(() => window.frames),
+      frames,
+      "Rich content schedules idle work",
+    );
+    await page.evaluate(() => {
+      tips.hide();
+      tips.show(a);
+    });
+    await page.waitForTimeout(240);
+    assert.equal(
+      await page.evaluate(() => window.mounts),
+      1,
+      "Interrupted exit remounted rich content",
+    );
+    await page.evaluate(() => {
+      tips.show(b);
+      tips.show(a);
+      tips.show(b);
+      tips.show(a);
+    });
+    await page.waitForTimeout(400);
+    assert.equal(await page.locator("#badge").count(), 1, "Rapid handoffs duplicated rich markup");
+    await page.evaluate(() => {
+      const badge = document.querySelector("#badge");
+      badge.textContent = "Long content. ".repeat(200);
+    });
+    await page.waitForTimeout(400);
+    const scroll = await page.locator(".tg-position .tg-content").evaluate((node) => {
+      node.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }));
+      node.scrollTop = 80;
+      return { top: node.scrollTop, open: node.closest(".tg-position").hasAttribute("data-open") };
+    });
+    assert(scroll.open && scroll.top > 0, "Long rich content cannot scroll on touch");
+    if (engine === chromium) {
+      const content = page.locator(".tg-position .tg-content");
+      await content.evaluate((node) => {
+        node.scrollTop = 0;
+      });
+      const box = await content.boundingBox();
+      const session = await page.context().newCDPSession(page);
+      const x = box.x + box.width / 2,
+        y = box.y + box.height - 25;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchStart",
+        touchPoints: [{ x, y }],
+      });
+      for (let step = 1; step <= 10; step++) {
+        await session.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x, y: y - step * 10 }],
+        });
+        await page.waitForTimeout(17);
+      }
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await page.waitForTimeout(100);
+      assert(
+        (await content.evaluate((node) => node.scrollTop)) > 10,
+        "Inert rich content blocked native touch scrolling",
+      );
+      await session.detach();
+    }
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.evaluate(() => {
+      tips.show(b);
+      tips.show(a);
+    });
+    assert.equal(await page.locator(".tg-position[data-open]").count(), 1);
+    await page.evaluate(() => tips.destroy());
+    assert.equal(await page.locator(".tg-overlay,.tg-description").count(), 0);
+    assert.equal(
+      await page.evaluate(() => window.mounts),
+      await page.evaluate(() => window.cleanups),
+    );
+    assert.deepEqual(errors, []);
+    console.log(
+      `${engine.name()} / rich: live growth/shrink, geometric arrow, interrupted exit, handoffs, touch scrolling, reduced motion and cleanup passed`,
+    );
+    await page.close();
   } finally {
     await browser.close();
   }
