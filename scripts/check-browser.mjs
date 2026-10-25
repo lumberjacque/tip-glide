@@ -5,6 +5,18 @@ import assert from "node:assert/strict";
 
 // Real layout, top layer and touch; no website or screenshots required.
 const assets = {};
+const richOnly = process.env.BROWSER_RICH_ONLY === "1";
+const richDuration = Number(process.env.RICH_TEST_DURATION_MS ?? 180);
+assert(
+  Number.isFinite(richDuration) && richDuration > 0,
+  "Expected a positive rich animation duration",
+);
+const waitForRichIdle = (page, timeout = 2500) =>
+  page.waitForFunction(
+    (quiet) => window.pendingFrames.size === 0 && performance.now() - window.lastFrameWork >= quiet,
+    160,
+    { polling: 25, timeout },
+  );
 for (const entry of ["index", "base", "native", "rich"]) {
   assets[entry] = {
     js: (
@@ -30,7 +42,7 @@ for (const engine of [chromium, webkit]) {
       : {}),
   });
   try {
-    for (const entry of ["index", "base", "native"]) {
+    for (const entry of richOnly ? [] : ["index", "base", "native"]) {
       const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true });
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -237,14 +249,29 @@ for (const engine of [chromium, webkit]) {
       #b{top:500px;left:260px} ${assets.rich.css}
       .tg-overlay{--tg-max-width:260px;--tg-max-height:180px}
     </style><button id="a">Plan</button><button id="b">Other</button><script>${assets.rich.js}</script>`);
-    await page.evaluate(() => {
+    await page.evaluate((duration) => {
       window.mounts = 0;
       window.cleanups = 0;
       window.frames = 0;
+      window.pendingFrames = new Set();
+      window.lastFrameWork = performance.now();
       const request = window.requestAnimationFrame.bind(window);
+      const cancel = window.cancelAnimationFrame.bind(window);
       window.requestAnimationFrame = (callback) => {
         window.frames++;
-        return request(callback);
+        window.lastFrameWork = performance.now();
+        const id = request((time) => {
+          window.pendingFrames.delete(id);
+          window.lastFrameWork = performance.now();
+          callback(time);
+        });
+        window.pendingFrames.add(id);
+        return id;
+      };
+      window.cancelAnimationFrame = (id) => {
+        window.pendingFrames.delete(id);
+        window.lastFrameWork = performance.now();
+        cancel(id);
       };
       window.a = document.querySelector("#a");
       window.b = document.querySelector("#b");
@@ -253,7 +280,7 @@ for (const engine of [chromium, webkit]) {
         lean: true,
         touch: "tap",
         openDelay: 0,
-        duration: 180,
+        duration,
       });
       tips.add(
         a,
@@ -271,7 +298,7 @@ for (const engine of [chromium, webkit]) {
       );
       tips.add(b, "A plain description that wraps across several lines.");
       tips.show(a);
-    });
+    }, richDuration);
     await page.waitForTimeout(300);
     const first = await page.locator(".tg-position").boundingBox();
     const description = await page.locator("#a").getAttribute("aria-describedby");
@@ -315,6 +342,9 @@ for (const engine of [chromium, webkit]) {
       shrunk.width < expanded.width && shrunk.height < expanded.height,
       "Rich tooltip did not shrink naturally",
     );
+    // Travel lasts duration ms; lean may settle for another 280 ms, plus observer dispatch.
+    // A fixed 450 ms sleep can sample the tail as idle, especially on slower CI WebKit.
+    await waitForRichIdle(page);
     const frames = await page.evaluate(() => window.frames);
     await page.waitForTimeout(160);
     assert.equal(
@@ -391,6 +421,20 @@ for (const engine of [chromium, webkit]) {
       await page.evaluate(() => window.mounts),
       await page.evaluate(() => window.cleanups),
     );
+    // Prove the guard rejects a real perpetual loop rather than tolerating extra frames.
+    await page.evaluate(() => {
+      const request = window.requestAnimationFrame.bind(window);
+      const loop = () => {
+        window.runaway = request(loop);
+      };
+      loop();
+    });
+    try {
+      await assert.rejects(waitForRichIdle(page, 300), /Timeout.*exceeded/);
+    } finally {
+      await page.evaluate(() => cancelAnimationFrame(window.runaway));
+    }
+    await waitForRichIdle(page);
     assert.deepEqual(errors, []);
     console.log(
       `${engine.name()} / rich: live growth/shrink, geometric arrow, interrupted exit, handoffs, touch scrolling, reduced motion and cleanup passed`,

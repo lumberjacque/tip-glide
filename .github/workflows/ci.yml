@@ -91,3 +91,8 @@ jobs:
       - run: npm ci
       - run: npx playwright-core install --with-deps chromium webkit
       - run: npm run test:browser
+      - name: Rich idle regression with a longer settling window
+        run: node scripts/check-browser.mjs
+        env:
+          BROWSER_RICH_ONLY: "1"
+          RICH_TEST_DURATION_MS: "400"
