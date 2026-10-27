@@ -1,6 +1,6 @@
 # Rich tooltip content
 
-This guide describes the unreleased implementation on the rich-content feature branch ([issue #7](https://github.com/lumberjacque/tip-glide/issues/7)). Published 0.5.1 accepts plain text only. Existing string APIs remain compatible.
+Rich content is available from version 0.6.0 ([issue #7](https://github.com/lumberjacque/tip-glide/issues/7)). Existing string APIs remain compatible.
 
 Badges, decorative icons and emphasized words can use the same geometric surface, lean, liquid pointer and application configuration. Every rich tooltip requires a nonempty plain-text equivalent for screen readers. Its visual content is inert and aria-hidden. Links, buttons, inputs and interactive widgets belong in a popover. HTML strings are never parsed.
 

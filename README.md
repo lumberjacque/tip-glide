@@ -212,7 +212,7 @@ Custom animation keyframes run on a dedicated entrance/exit layer, separate from
 
 ### Application-wide configuration (since 0.5.0)
 
-Version 0.5.0 adds centrally configured trigger bindings to all framework adapters. Configure the application once, then pass plain text at each trigger. The unreleased rich-content extension described below adds native template/JSX/slot bindings to the same configuration. Separate components share one visual tooltip and its warm timing. Empty text, `null`, `undefined` or `false` disables a trigger. Live text changes keep an open tooltip visible and preserve its accessible description token.
+Version 0.5.0 adds centrally configured trigger bindings to all framework adapters. Configure the application once, then pass plain text at each trigger. Version 0.6.0 adds native template/JSX/slot bindings for rich content to the same configuration. Separate components share one visual tooltip and its warm timing. Empty text, `null`, `undefined` or `false` disables a trigger. Live text changes keep an open tooltip visible and preserve its accessible description token.
 
 For application code, start with the provider/plugin examples below. Use a local group only when its tooltips need independent configuration or a separate boundary.
 
@@ -612,11 +612,11 @@ Invalid options throw the same validation errors as the core. Frameworks are opt
 
 The package also exports `TipGlide`, `TipGlideOptions`, `Placement`, `MotionPreference`, `TipAnimation` and `TipTransition` as TypeScript types.
 
-## Rich content (unreleased)
+## Rich content (0.6.0)
 
-The feature branch for [issue #7](https://github.com/lumberjacque/tip-glide/issues/7) adds badges, icons and emphasized text without changing the existing string API. Use `tip-glide/rich` for DOM elements or render callbacks. Native integrations support JSX in React/Preact/Solid, Vue slots, Angular `TemplateRef` with context, Svelte 4/5 slots and static Astro slots. All retain central application configuration and the geometric surface with its connected pointer.
+Version 0.6.0 ([issue #7](https://github.com/lumberjacque/tip-glide/issues/7)) adds badges, icons and emphasized text without changing the existing string API. Use `tip-glide/rich` for DOM elements or render callbacks. Native integrations support JSX in React/Preact/Solid, Vue slots, Angular `TemplateRef` with context, Svelte 4/5 slots and static Astro slots. All retain central application configuration and the geometric surface with its connected pointer.
 
-Every rich tooltip requires a plain-text accessible description. Content is inert, so interactive controls still belong in a popover. HTML strings are never parsed. See the [rich-content guide](./RICH-CONTENT.md) for examples, ownership, SSR, styling and sizing. Published 0.5.1 does not include these unreleased interfaces.
+Every rich tooltip requires a plain-text accessible description. Content is inert, so interactive controls still belong in a popover. HTML strings are never parsed. See the [rich-content guide](./RICH-CONTENT.md) for examples, ownership, SSR, styling and sizing. Rich content requires version 0.6.0 or later.
 
 ## Motion and input
 
