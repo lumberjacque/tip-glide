@@ -34,7 +34,7 @@ try {
   );
   for (const { path } of packed.files) {
     if (
-      !/^(?:dist\/.*\.(?:js|d\.ts|astro)|dist\/(?:style|base|native)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|ARCHITECTURE\.md|LICENSE)$/.test(
+      !/^(?:dist\/.*\.(?:js|d\.ts|astro|svelte)|dist\/(?:style|base|native)\.css|package\.json|README\.md|CONTRIBUTING\.md|PERFORMANCE\.md|ARCHITECTURE\.md|RICH-CONTENT\.md|LICENSE)$/.test(
         path,
       )
     )
@@ -69,7 +69,9 @@ try {
   // Install actual consumer frameworks only after proving the vanilla install stays independent.
   const frameworks = [
     "react",
+    "react-dom",
     "@types/react",
+    "@types/react-dom",
     "vue",
     "svelte",
     "preact",
@@ -98,6 +100,9 @@ try {
     `
 import { createTipGlide } from "tip-glide";
 import { createTipGlideScope } from "tip-glide/scope";
+import { createRichTipGlide, createRichTipGlideScope, richContent } from "tip-glide/rich";
+const rich = createRichTipGlideScope(); rich.destroy();
+if (typeof createRichTipGlide !== "function" || typeof richContent !== "function") throw new Error("Rich SSR import failed");
 const scope = createTipGlideScope({ lean: true }); scope.destroy();
 import { createTipGlide as createBase } from "tip-glide/base";
 import { createTipGlide as createNative, supportsNativeTipGlide } from "tip-glide/native";
@@ -138,6 +143,13 @@ import { createTipGlide, type TipGlide, type TipGlideOptions, type Placement,
 import { createTipGlide as createBase, type TipGlideBase, type TipGlideBaseOptions } from "tip-glide/base";
 import { createTipGlide as createNative, type TipGlideNativeOptions } from "tip-glide/native";
 import { createTipGlideScope } from "tip-glide/scope";
+import { createRichTipGlide, createRichTipGlideScope, richContent } from "tip-glide/rich";
+const richScope = createRichTipGlideScope({ lean: true });
+declare const badge: HTMLElement;
+richScope.attach(badge, richContent("Pro plan", badge));
+createRichTipGlide(badge).setContent(badge, richContent("Plan", host => { host.textContent = "Badge"; return () => {}; }));
+// @ts-expect-error Rich content requires DOM or a renderer, never an HTML string.
+richContent("Pro", "<b>Pro</b>");
 import { createElement } from "react";
 import { TipGlide as ReactGroup, useTipGlide, TipGlideProvider as ReactProvider, useTooltip as useReactTooltip, type TipGlideAdapterOptions } from "tip-glide/react";
 import { vTipGlide, createTipGlidePlugin } from "tip-glide/vue";
@@ -252,8 +264,9 @@ export class Toolbar { text: string | null = "Dynamic text"; readonly options: T
     join(consumer, "src/pages/index.astro"),
     `---
 import TipGlide from 'tip-glide/astro';
+import Tooltip from 'tip-glide/astro/Tooltip.astro';
 ---
-<TipGlide options={{ arrow: true, boundary: 'root' }}><button data-tip="Save">Save</button></TipGlide>
+<TipGlide options={{ arrow: true, boundary: 'root' }}><button data-tip="Save">Save</button><Tooltip description="Pro plan"><button slot="trigger">Plan</button><strong>Pro</strong></Tooltip></TipGlide>
 `,
   );
   await writeFile(

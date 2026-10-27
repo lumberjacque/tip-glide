@@ -28,6 +28,15 @@ export function createTipGlide(
   root: Document | HTMLElement,
   options: TipGlideOptions = {},
 ): TipGlide {
+  return createFullController(root, options, createView);
+}
+
+/** Internal constructor shared by the plain and opt-in rich entries. */
+export function createFullController(
+  root: Document | HTMLElement,
+  options: TipGlideOptions,
+  view: typeof createView,
+): TipGlide {
   return createController(
     root,
     options,
@@ -45,6 +54,6 @@ export function createTipGlide(
       }
       return config;
     },
-    createView,
+    view,
   );
 }

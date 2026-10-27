@@ -1,14 +1,30 @@
 "use client";
 
-import { createContext, createElement, useCallback, useContext, useEffect, useRef } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  Fragment,
+} from "react";
+import { createPortal } from "react-dom";
 import type { HTMLAttributes, ReactNode, RefCallback } from "react";
 import { bindTipGlide } from "./adapters/binding.js";
 import type { TipGlideAdapterOptions } from "./adapters/binding.js";
-import { createTipGlideScope } from "./scope.js";
-import type { TipGlideScope, TipGlideContent, TipGlideTrigger } from "./scope.js";
+import { createRichTipGlideScope as createTipGlideScope, richContent } from "./rich.js";
+import type { TipGlideRichContent } from "./rich.js";
+import type { TipGlideContent } from "./scope.js";
+type TipGlideScope = ReturnType<typeof createTipGlideScope>;
+type TipGlideTrigger = ReturnType<TipGlideScope["attach"]>;
 import type { TipGlideOptions } from "./types.js";
 export type { TipGlideAdapterOptions } from "./adapters/binding.js";
 export type { TipGlideContent } from "./scope.js";
+export { richContent } from "./rich.js";
+export type { TipGlideRichContent } from "./rich.js";
 /**
  * Attach one shared tooltip to an existing element with a stable callback ref.
  * @param options - Full configuration; omitted fields reset to defaults. Changes apply after commit.
@@ -89,8 +105,8 @@ export function TipGlideProvider({ options = {}, children }: TipGlideProviderPro
 }
 
 /**
- * Attach reactive tooltip text to an existing element within TipGlideProvider.
- * @param content - Plain text; empty/null/false disables the tooltip.
+ * Attach reactive tooltip content to an existing element within TipGlideProvider.
+ * @param content - Plain text or richContent; empty/null/false disables the tooltip.
  * @returns A stable element ref, with automatic registration, live text updates and cleanup.
  * @throws When used outside a provider, or content/options are invalid.
  * @remarks Call unconditionally at component top level; pass null to disable. No per-trigger group
@@ -100,7 +116,7 @@ export function TipGlideProvider({ options = {}, children }: TipGlideProviderPro
  * @public
  */
 export function useTooltip<T extends HTMLElement = HTMLElement>(
-  content: TipGlideContent,
+  content: TipGlideContent | TipGlideRichContent,
 ): RefCallback<T> {
   const scope = useContext(ScopeContext);
   if (!scope) throw new Error("tip-glide: useTooltip requires TipGlideProvider.");
@@ -118,4 +134,39 @@ export function useTooltip<T extends HTMLElement = HTMLElement>(
     binding.current?.update(content);
   }, [content]);
   return ref;
+}
+
+/** Props for an opt-in rich tooltip rendered through the caller's React context. @public */
+export interface TooltipProps {
+  /** Non-interactive JSX, such as badges, icons and emphasized text. */
+  content: ReactNode;
+  /** Required equivalent plain-text accessible description. */
+  description: string;
+  /** Render the native trigger and forward the supplied stable ref to it. */
+  children: (ref: RefCallback<HTMLElement>) => ReactNode;
+}
+
+/**
+ * Render rich JSX through a portal, preserving the consumer's providers and component state.
+ * @param props - JSX content, accessible description and a trigger render function.
+ * @returns Trigger content and a lazy tooltip portal; no extra trigger wrapper is created.
+ * @remarks Requires TipGlideProvider. SSR renders only the trigger. Content is inert and mounts
+ * on presentation, remaining mounted through reactive updates until exit/replacement/unmount.
+ * @example `<Tooltip description="Pro plan" content={<strong>Pro</strong>}>{ref => <button ref={ref}>Plan</button>}</Tooltip>`
+ * @public
+ */
+export function Tooltip({ content, description, children }: TooltipProps) {
+  const [target, setTarget] = useState<HTMLElement | null>(null);
+  const render = useCallback((host: HTMLElement) => {
+    setTarget(host);
+    return () => setTarget(null);
+  }, []);
+  const value = useMemo(() => richContent(description, render), [description, render]);
+  const ref = useTooltip(value);
+  return createElement(
+    Fragment,
+    null,
+    children(ref),
+    target ? createPortal(content, target) : null,
+  );
 }

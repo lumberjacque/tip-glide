@@ -19,6 +19,10 @@ Tests cover shared interaction invariants and renderer-specific work. Browser te
 
 ## Application scopes (0.5.0)
 
+Rich rendering is optional through `rich.ts`. It supplies a small `ContentPresentation` interface to the full view; geometry still owns the single surface, contour and travel loop. The shared lifecycle still owns plain accessible descriptions, input and dismissal. A rich descriptor contains a renderer and an explicit text equivalent. The actual rich DOM is the measurement target, with max-content sizing under viewport limits; no second framework tree is created for measurement. The existing resize lifecycle retargets the surface as intrinsic dimensions change.
+
+React/Preact and Vue render portals from the consumer's owner, Solid uses an owner-preserving Portal, Angular owns a TemplateRef embedded view, and Svelte moves its existing slot host through an action. Astro slots become static templates cloned on presentation. Completed exits, replacements and destruction release the renderer; interrupted exits retain it. Plain root/scope, base and native entries do not import rich rendering; framework adapters include it. See RICH-CONTENT.md for the public interfaces and lifetime rules.
+
 `scope.ts` owns central defaults and lazy, reference-counted groups by document. Framework trigger bindings attach plain text to this interface; they do not create a controller per element. Each framework supplies its own ownership mechanism: React/Preact context, Angular application DI, a Vue app plugin, Svelte context/actions and Solid context/directive owners. Astro keeps the single root group in the shared layout and observes text attributes.
 
 The scope is created per application/request, not as a mutable document/global singleton. Providers can share a scope through portals without relying on DOM ancestry. Empty text disables a trigger and releases its registration. Changing nonempty text uses the core's setContent path so a visible tooltip and its stable accessible description survive the update. The last registered trigger releases the controller and its warm history; later attachment starts a fresh group.

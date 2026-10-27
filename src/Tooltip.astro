@@ -1,0 +1,25 @@
+---
+/** Static non-interactive content within a tip-glide/astro group. @public */
+export interface Props {
+  /** Required equivalent plain-text accessible description. */
+  description: string;
+}
+const { description } = Astro.props;
+if (typeof description !== 'string' || !description.trim())
+  throw new TypeError('tip-glide: Tooltip requires a nonempty description.');
+const id = `tg-template-${crypto.randomUUID()}`;
+---
+
+<tip-glide-tooltip data-description={description}>
+  <span data-tip-trigger><slot name="trigger" /></span>
+  <template id={id}><slot /></template>
+</tip-glide-tooltip>
+
+<style>
+  tip-glide-tooltip, [data-tip-trigger] { display: contents; }
+</style>
+
+<script>
+  import { registerTipGlideElement } from './adapters/astro-element.js';
+  registerTipGlideElement();
+</script>

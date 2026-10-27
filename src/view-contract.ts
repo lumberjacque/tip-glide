@@ -18,6 +18,8 @@ export type ControllerOptions = Required<
 export interface ControllerView<Config> {
   /** Native renderers track the anchor through CSS, without JS positioning. */
   tracksAnchor?: boolean;
+  /** Intrinsic rich-content changes may morph the surface instead of snapping. */
+  animatedContent?: boolean;
   baseClass: string;
   overlay: HTMLElement;
   position: HTMLElement;
@@ -38,6 +40,12 @@ export interface ControllerView<Config> {
     options: Config,
     reduced: boolean,
   ): void;
-  stopFuse(): void;
+  stopFuse(preserveContent?: boolean): void;
   destroy(): void;
+}
+
+/** Optional full-renderer seam; framework ownership stays outside geometry and input handling. */
+export interface ContentPresentation {
+  present(trigger: HTMLElement, container: HTMLElement): boolean;
+  clear(): void;
 }

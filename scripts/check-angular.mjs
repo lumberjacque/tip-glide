@@ -81,11 +81,13 @@ if (typeof document !== "undefined" || !TipGlideDirective || !TipGlideGroupDirec
 import { Component, Input, signal } from "@angular/core";
 import { TipGlideDirective, TipGlideGroupDirective } from "tip-glide/angular";
 @Component({ standalone: true, imports: [TipGlideDirective, TipGlideGroupDirective],
-  template: '<button [tipGlide]="text()">Save</button><button tipGlide="Static">Info</button><button [tipGlide]="plain">Bound input</button><nav [tipGlideGroup]="options"><button data-tip="Local">Local</button></nav>' })
+  template: '<button [tipGlide]="text()">Save</button><button tipGlide="Static">Info</button><button [tipGlide]="plain">Bound input</button><nav [tipGlideGroup]="options"><button data-tip="Local">Local</button></nav><button id="rich-trigger" [tipGlide]="badge" [tipGlideContext]="context()" [tipGlideDescription]="description()">Plan</button><ng-template #badge let-plan><strong>{{plan}}</strong></ng-template>' })
 export class Toolbar {
   text = signal<string | null>("First");
   @Input() plain = "Plain";
   options = { className: "local" };
+  context = signal({ $implicit: "Pro" });
+  description = signal("Pro plan");
 }
 `,
     );
@@ -141,7 +143,7 @@ try {
   const fixture = TestBed.createComponent(Toolbar);
   fixture.detectChanges(); await fixture.whenStable();
   const descriptions = () => Array.from(document.querySelectorAll(".tg-description"), (node) => node.textContent).sort();
-  assert.deepEqual(descriptions(), ["First", "Local", "Plain", "Static"]);
+  assert.deepEqual(descriptions(), ["First", "Local", "Plain", "Pro plan", "Static"]);
   assert.equal(document.querySelectorAll(".tg-overlay").length, 2);
   // Happy DOM has no layout; supply visible rectangles for focus-triggered rendering.
   for (const trigger of fixture.nativeElement.querySelectorAll("button")) {
@@ -158,12 +160,24 @@ try {
   fixture.componentInstance.text.set("Changed");
   fixture.componentRef.setInput("plain", "Changed input");
   fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await fixture.whenStable();
-  assert.deepEqual(descriptions(), ["Changed", "Changed input", "Local", "Static"]);
+  assert.deepEqual(descriptions(), ["Changed", "Changed input", "Local", "Pro plan", "Static"]);
   assert.equal(button.getAttribute("aria-describedby"), description);
   fixture.componentInstance.text.set(null);
   fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await fixture.whenStable();
-  assert.deepEqual(descriptions(), ["Changed input", "Local", "Static"]);
+  assert.deepEqual(descriptions(), ["Changed input", "Local", "Pro plan", "Static"]);
   assert.equal(button.hasAttribute("aria-describedby"), false);
+  const richTrigger = fixture.nativeElement.querySelector('#rich-trigger');
+  richTrigger.dispatchEvent(new window.FocusEvent('focusin', {bubbles:true}));
+  const badge = document.querySelector('.tg-content strong');
+  const richId = richTrigger.getAttribute('aria-describedby');
+  assert.equal(badge?.textContent, 'Pro');
+  fixture.componentInstance.context.set({$implicit:'Enterprise'});
+  fixture.componentInstance.description.set('Enterprise plan');
+  fixture.changeDetectorRef.markForCheck(); fixture.detectChanges(); await fixture.whenStable();
+  assert.equal(document.querySelector('.tg-content strong'), badge);
+  assert.equal(badge.textContent, 'Enterprise');
+  assert.equal(richTrigger.getAttribute('aria-describedby'), richId);
+  assert.equal(document.getElementById(richId).textContent, 'Enterprise plan');
   fixture.destroy();
   assert.equal(document.querySelectorAll(".tg-overlay, .tg-description").length, 0);
 } finally {

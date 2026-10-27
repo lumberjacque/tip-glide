@@ -67,7 +67,8 @@ export function createController<Input, Config extends ControllerOptions>(
     !view.tracksAnchor && typeof win.ResizeObserver === "function"
       ? new win.ResizeObserver(() => {
           // ResizeObserver sends an initial notification. It must not cancel a new glide.
-          if (active && geometryKey() !== observedGeometry) schedulePosition();
+          if (active && geometryKey() !== observedGeometry)
+            schedulePosition(undefined, !view.animatedContent);
         })
       : undefined;
 
@@ -76,11 +77,11 @@ export function createController<Input, Config extends ControllerOptions>(
     removers.push(() => target.removeEventListener(type, handler, capture));
   }
 
-  function cancelOpen() {
+  function cancelOpen(preserveContent = false) {
     win!.clearTimeout(openTimer);
     openTimer = undefined;
     pending = undefined;
-    view.stopFuse();
+    view.stopFuse(preserveContent);
   }
 
   function cancelClose() {
@@ -117,7 +118,7 @@ export function createController<Input, Config extends ControllerOptions>(
       dismiss(true);
       return;
     }
-    cancelOpen();
+    cancelOpen(true);
     cancelClose();
     const changed = active !== trigger;
     active = trigger;
@@ -190,14 +191,14 @@ export function createController<Input, Config extends ControllerOptions>(
     );
   }
 
-  function schedulePosition(event?: Event) {
+  function schedulePosition(event?: Event, instant = true) {
     if (destroyed || event?.composedPath().includes(view.position)) return;
     // A scroll invalidates the delay indicator's coordinates; the next hover can start again.
     cancelOpen();
     if (frame !== undefined) return;
     frame = win!.requestAnimationFrame(() => {
       frame = undefined;
-      reposition(true);
+      reposition(instant);
     });
   }
 

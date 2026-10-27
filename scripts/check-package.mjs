@@ -36,6 +36,8 @@ outputs.push(
   resolve(root, "dist/base.css"),
   resolve(root, "dist/native.css"),
   resolve(root, "dist/astro.astro"),
+  resolve(root, "dist/Tooltip.astro"),
+  resolve(root, "dist/Tooltip.svelte"),
 );
 const newestCSS = Math.max(
   ...(await Promise.all(
@@ -53,8 +55,8 @@ for (const path of outputs) {
   }
   const sourceTime = path.endsWith(".css")
     ? newestCSS
-    : path.endsWith(".astro")
-      ? (await stat(resolve(root, "src/astro.astro"))).mtimeMs
+    : path.endsWith(".astro") || path.endsWith(".svelte")
+      ? (await stat(resolve(root, "src", path.slice(resolve(root, "dist").length + 1)))).mtimeMs
       : newestSource;
   if (output.mtimeMs < sourceTime)
     throw new Error(`Stale package output: ${path}. Run npm run build in core first.`);

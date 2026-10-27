@@ -27,7 +27,9 @@
     "PERFORMANCE.md",
     "LICENSE",
     "dist/*.astro",
-    "ARCHITECTURE.md"
+    "ARCHITECTURE.md",
+    "dist/*.svelte",
+    "RICH-CONTENT.md"
   ],
   "type": "module",
   "sideEffects": [
@@ -83,7 +85,13 @@
     "./scope": {
       "types": "./dist/scope.d.ts",
       "import": "./dist/scope.js"
-    }
+    },
+    "./rich": {
+      "types": "./dist/rich.d.ts",
+      "import": "./dist/rich.js"
+    },
+    "./svelte/Tooltip.svelte": "./dist/Tooltip.svelte",
+    "./astro/Tooltip.astro": "./dist/Tooltip.astro"
   },
   "publishConfig": {
     "access": "public",
@@ -97,17 +105,18 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "size": "node scripts/size.mjs",
-    "verify": "npm run verify:core && npm run check:install && npm run check:angular",
+    "verify": "npm run verify:core && npm run check:install && npm run check:angular && npm run check:svelte",
     "prepack": "npm run build && npm run check:package",
     "prepublishOnly": "npm run verify",
     "check:package": "node scripts/check-package.mjs",
     "check:install": "node scripts/check-install.mjs",
     "bench": "npm run build && node scripts/bench.mjs",
     "bench:browser": "npm run build && node scripts/bench-browser.mjs",
-    "test:adapters": "vitest run tests/adapters.test.ts tests/adapters-ssr.test.ts tests/adapters-extra.test.ts tests/scope.test.ts",
+    "test:adapters": "vitest run tests/adapters.test.ts tests/adapters-ssr.test.ts tests/adapters-extra.test.ts tests/scope.test.ts tests/rich.test.ts tests/rich-adapters.test.ts",
     "verify:core": "npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build && npm run size && npm run check:package",
     "test:browser": "npm run build && node scripts/check-browser.mjs",
-    "check:angular": "node scripts/check-angular.mjs"
+    "check:angular": "node scripts/check-angular.mjs",
+    "check:svelte": "node scripts/check-svelte.mjs"
   },
   "devDependencies": {
     "@angular/common": "20.0.0",
@@ -138,6 +147,7 @@
     "astro": ">=5 <8",
     "preact": ">=10 <12",
     "react": ">=18 <20",
+    "react-dom": ">=18 <20",
     "solid-js": ">=1.9 <2",
     "svelte": ">=4 <6",
     "vue": ">=3.3 <4"
@@ -162,6 +172,9 @@
       "optional": true
     },
     "astro": {
+      "optional": true
+    },
+    "react-dom": {
       "optional": true
     }
   },

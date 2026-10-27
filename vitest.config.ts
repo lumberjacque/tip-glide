@@ -12,5 +12,10 @@ export default defineConfig({
       },
     },
   ],
-  test: { environment: "happy-dom", include: ["tests/**/*.test.ts"] },
+  test: {
+    environment: "happy-dom",
+    include: ["tests/**/*.test.ts"],
+    // Keep Solid's DOM renderer and reactive runtime on the same browser conditions.
+    server: { deps: { inline: ["solid-js"] } },
+  },
 });

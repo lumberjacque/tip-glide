@@ -212,7 +212,7 @@ Custom animation keyframes run on a dedicated entrance/exit layer, separate from
 
 ### Application-wide configuration (since 0.5.0)
 
-Version 0.5.0 adds centrally configured trigger bindings to all framework adapters. Configure the application once, then pass only plain text at each trigger. Separate components share one visual tooltip and its warm timing. Empty text, `null`, `undefined` or `false` disables a trigger. Live text changes keep an open tooltip visible and preserve its accessible description token.
+Version 0.5.0 adds centrally configured trigger bindings to all framework adapters. Configure the application once, then pass plain text at each trigger. The unreleased rich-content extension described below adds native template/JSX/slot bindings to the same configuration. Separate components share one visual tooltip and its warm timing. Empty text, `null`, `undefined` or `false` disables a trigger. Live text changes keep an open tooltip visible and preserve its accessible description token.
 
 For application code, start with the provider/plugin examples below. Use a local group only when its tooltips need independent configuration or a separate boundary.
 
@@ -608,9 +608,15 @@ The six JavaScript adapter entry points export the `TipGlideAdapterOptions` type
 - `boundary: "root"` confines the tooltip to the adapter's own group element. A same-document element or `null` also works.
 - `alwaysVisible: true` shows the first nonempty trigger when the group mounts or that trigger changes. This is a touch-preview convenience, not a controlled open state; Escape, blur and normal tooltip interactions still apply.
 
-Invalid options throw the same validation errors as the core. The adapters add no runtime framework dependency to the core or base entry. Frameworks are optional peers; install only the framework your application uses. Vue and Svelte use type-only framework imports. The core and base entry points never import an adapter. Other environments can use the imperative core API.
+Invalid options throw the same validation errors as the core. Frameworks are optional peers; install only your framework (React web consumers also need matching React DOM). The core and base entry points never import an adapter or a framework runtime. Other environments can use the imperative core API.
 
 The package also exports `TipGlide`, `TipGlideOptions`, `Placement`, `MotionPreference`, `TipAnimation` and `TipTransition` as TypeScript types.
+
+## Rich content (unreleased)
+
+The feature branch for [issue #7](https://github.com/lumberjacque/tip-glide/issues/7) adds badges, icons and emphasized text without changing the existing string API. Use `tip-glide/rich` for DOM elements or render callbacks. Native integrations support JSX in React/Preact/Solid, Vue slots, Angular `TemplateRef` with context, Svelte 4/5 slots and static Astro slots. All retain central application configuration and the geometric surface with its connected pointer.
+
+Every rich tooltip requires a plain-text accessible description. Content is inert, so interactive controls still belong in a popover. HTML strings are never parsed. See the [rich-content guide](./RICH-CONTENT.md) for examples, ownership, SSR, styling and sizing. Published 0.5.1 does not include these unreleased interfaces.
 
 ## Motion and input
 
@@ -626,7 +632,7 @@ The library targets modern evergreen browsers with Pointer Events, `matchMedia` 
 
 Imports are SSR-safe, but `createTipGlide()` requires a browser document with an existing body. The package provides ESM exports; CommonJS `require()` is not an advertised entry point.
 
-This library is designed for plain-text tooltips. Top-layer dialogs, transformed document bodies or boundary containers, closed Shadow DOM, and interactive tooltip contents are unsupported. Use a popover for links, buttons or other interactive content.
+Plain text is the default. The optional rich entry and framework adapters also support non-interactive markup as described above. Transformed document bodies or boundary containers, closed Shadow DOM and interactive tooltip contents are unsupported. Use a popover for links, buttons or other interactive content.
 
 ## Accessibility
 
@@ -644,7 +650,7 @@ Long descriptions support native scrolling inside the shared surface, including 
 
 - **The tooltip is missing or unstyled.** Import the stylesheet matching your entry, initialize after mounting, and make sure the trigger is connected, has a nonempty description and is inside the effective boundary.
 - **A new button has no tooltip.** Call `tips.add(button)` after adding it to the document. The initial `data-tip` scan runs once.
-- **A changed description is not shown.** Call `tips.add(button, "Updated description")` to replace the registration.
+- **A changed description is not shown.** Call `tips.setContent(button, "Updated description")` to update it in place.
 - **Theme variables have no effect.** Apply them to the class passed through `className`. The overlay is mounted under `document.body`, so it does not inherit variables from the trigger's container.
 - **Position is stale after a layout change.** Call `tips.reposition()` when a sibling moves the trigger or a CSS transform changes its position.
 
@@ -661,7 +667,7 @@ npm run verify
 
 `src/lifecycle.ts` shares input handling, registration and cleanup between the three entries. The full entry is defined in `src/index.ts`; the lightweight entry is in `src/base.ts`. Renderers own DOM measurement and visual motion, with placement, routing and contour math in separate modules. Tests cover positioning, rapid handoffs, timing, focus, Escape, touch, description ownership and reduced motion. The renderer contract is in `src/view-contract.ts`; `src/overlay.ts` owns top-layer lifetime and `src/removals.ts` shares one removal observer per document. The optional Web Component and framework adapters reuse the same binding. No state-machine or rendering dependency is required. DOM simulation tests do not substitute for browser motion checks. `npm run test:browser` checks Chromium and WebKit layout, top layer, touch, interruptions and cleanup without screenshots; CI installs these two test browsers. See [architecture](./ARCHITECTURE.md).
 
-`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 9 kB for full, 4.8 kB for base and 4.5 kB for native. The interaction/top-layer additions increased full and base by about 0.7 kB; native reduces layout work but only modestly reduces download size versus base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
+`npm run size` bundles the built ESM with esbuild and measures JavaScript and CSS separately. Combined gzip budgets are 9.2 kB for full, 4.8 kB for base, 4.6 kB for native, 10 kB for text scope and 12 kB for the opt-in rich entry. The interaction/top-layer additions increased full and base by about 0.7 kB; native reduces layout work but only modestly reduces download size versus base. The check also prevents the full renderer and advanced motion modules from entering the base import. See command output for exact current bytes.
 
 `npm run bench` reports pure geometry timings. `npm run bench:browser` compares both entries in installed Edge on desktop and narrow viewports, without starting the demo website. See [PERFORMANCE.md](https://github.com/lumberjacque/tip-glide/blob/main/PERFORMANCE.md) for browser selection, workloads and measurement limits.
 

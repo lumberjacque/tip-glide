@@ -9,10 +9,11 @@ const baseBudget = override ? Number(override.split("=")[1]) : 4800;
 if (!Number.isSafeInteger(baseBudget) || baseBudget <= 0)
   throw new RangeError("--base-budget must be a positive number of bytes.");
 for (const [name, entry, stylesheet, budget] of [
-  ["full", "index", "style", 9000],
+  ["full", "index", "style", 9200],
   ["base", "base", "base", baseBudget],
-  ["native", "native", "native", 4500],
+  ["native", "native", "native", 4600],
   ["scope", "scope", "style", 10000],
+  ["rich", "rich", "style", 12000],
 ]) {
   const result = await build({
     entryPoints: [`dist/${entry}.js`],
@@ -26,10 +27,15 @@ for (const [name, entry, stylesheet, budget] of [
   const css = await readFile(`dist/${stylesheet}.css`);
   const jsGzip = gzipSync(js).length,
     cssGzip = gzipSync(css).length;
-  if (name !== "scope")
+  if (name !== "scope" && name !== "rich")
     assert(
       !Object.keys(result.metafile.inputs).includes("dist/scope.js"),
       `${name} must not bundle application scopes`,
+    );
+  if (name !== "rich")
+    assert(
+      !Object.keys(result.metafile.inputs).includes("dist/rich.js"),
+      `${name} must not bundle rich renderers`,
     );
   if (name === "base" || name === "native") {
     const inputs = Object.keys(result.metafile.inputs);
